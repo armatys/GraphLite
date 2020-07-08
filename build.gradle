@@ -57,7 +57,7 @@ repositories {
 }
 
 group = "pl.makenika.graphlite"
-version = "0.0.1"
+version = "0.0.2"
 
 kotlin {
     android {
@@ -66,6 +66,7 @@ kotlin {
                 jvmTarget = "1.8"
             }
         }
+        publishLibraryVariants("release")
     }
 
     jvm {
@@ -114,6 +115,19 @@ kotlin {
         all {
             languageSettings.enableLanguageFeature("InlineClasses")
             languageSettings.enableLanguageFeature("NewInference")
+        }
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            credentials {
+                username = System.getenv("USERNAME")
+                password = System.getenv("TOKEN")
+            }
+            url = uri("https://maven.pkg.github.com/armatys/GraphLite")
         }
     }
 }
