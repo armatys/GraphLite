@@ -78,21 +78,23 @@ internal object GraphSqlUtils {
 
     fun getSchemaFields(driver: SqliteDriver, schemaId: String): Sequence<Field<*, *>> {
         return sequence {
-            driver.query("SELECT name, type from Field WHERE schemaId = ?", arrayOf(schemaId)).use { fieldCursor ->
-                while (fieldCursor.moveToNext()) {
-                    val fieldName = fieldCursor.getString("name")
-                    val fieldType = fieldCursor.getString("type")
-                    val field: Field<Schema, Any> = when {
-                        fieldType.startsWith(Field.FIELD_TYPE_BLOB) -> FieldImpl<Schema, Any>(fieldName, fieldType)
-                        fieldType.startsWith(Field.FIELD_TYPE_GEO) -> IndexableFieldImpl<Schema, Any>(
-                            fieldName,
-                            fieldType
-                        )
-                        else -> IndexableScalarFieldImpl<Schema, Any>(fieldName, fieldType)
+            driver.query("SELECT name, type from Field WHERE schemaId = ?", arrayOf(schemaId))
+                .use { fieldCursor ->
+                    while (fieldCursor.moveToNext()) {
+                        val fieldName = fieldCursor.getString("name")
+                        val fieldTypeCode = fieldCursor.getString("type")
+                        val field: Field<Schema, Any> =
+                            when (val fieldType = FieldType.fromCode(fieldTypeCode)) {
+                                is FieldType.Blob -> FieldImpl<Schema, Any>(fieldName, fieldType)
+                                is FieldType.Geo -> IndexableFieldImpl<Schema, Any>(
+                                    fieldName,
+                                    fieldType
+                                )
+                                else -> IndexableScalarFieldImpl<Schema, Any>(fieldName, fieldType)
+                            }
+                        yield(field)
                     }
-                    yield(field)
                 }
-            }
         }
     }
 }

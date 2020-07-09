@@ -19,8 +19,6 @@ package pl.makenika.graphlite
 import com.benasher44.uuid.uuid4
 import pl.makenika.graphlite.impl.GraphLiteDatabaseImpl
 import pl.makenika.graphlite.impl.GraphSqlUtils.getSchemaFields
-import pl.makenika.graphlite.impl.baseFieldTypeName
-import pl.makenika.graphlite.impl.isFieldTypeNullable
 import pl.makenika.graphlite.sql.*
 
 class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
@@ -85,7 +83,8 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
 
         // check we have all necessary migrations
         for (migrationRequest in migrationsToRun) {
-            val targetVersionMigrations = migrations[migrationRequest.newSchema.schemaName] ?: mutableMapOf()
+            val targetVersionMigrations =
+                migrations[migrationRequest.newSchema.schemaName] ?: mutableMapOf()
             for (i in (migrationRequest.oldSchema.schemaVersion + 1)..migrationRequest.newSchema.schemaVersion) {
                 if (targetVersionMigrations[i] == null) {
                     error("Missing migration for ${migrationRequest.newSchema.schemaName} from version ${migrationRequest.oldSchema.schemaVersion} to version ${migrationRequest.newSchema.schemaVersion}")
@@ -137,18 +136,17 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
                 put("id", fieldId.toString())
                 put("name", field.name)
                 put("schemaId", schemaId)
-                put("type", field.type)
+                put("type", field.type.code)
             }
             driver.insertOrAbortAndThrow("Field", fieldValues)
 
-            val isNullable = isFieldTypeNullable(field.type)
-            val createTableStatements = when (val typeName = baseFieldTypeName(field.type)) {
-                Field.FIELD_TYPE_BLOB -> createTableFieldValueBlob(fieldId, isNullable)
-                Field.FIELD_TYPE_GEO -> createTableFieldValueGeo(fieldId, isNullable)
-                Field.FIELD_TYPE_LONG_INT -> createTableFieldValueInt(fieldId, isNullable)
-                Field.FIELD_TYPE_DOUBLE_FLOAT -> createTableFieldValueReal(fieldId, isNullable)
-                Field.FIELD_TYPE_TEXT -> createTableFieldValueText(fieldId, isNullable)
-                else -> error("Unknown field type: $typeName")
+            val isNullable = field.type.optional
+            val createTableStatements = when (field.type) {
+                is FieldType.Blob -> createTableFieldValueBlob(fieldId, isNullable)
+                is FieldType.Geo -> createTableFieldValueGeo(fieldId, isNullable)
+                is FieldType.LongInt -> createTableFieldValueLongInt(fieldId, isNullable)
+                is FieldType.DoubleFloat -> createTableFieldValueDoubleFloat(fieldId, isNullable)
+                is FieldType.Text -> createTableFieldValueText(fieldId, isNullable)
             }
             createTableStatements.forEach {
                 driver.execute(it)
@@ -157,7 +155,8 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
     }
 
     private fun performMigration(db: GraphLiteDatabase, migrationRequest: MigrationRequest) {
-        val targetVersionMigrations = migrations[migrationRequest.newSchema.schemaName] ?: emptyMap<Int, Migration>()
+        val targetVersionMigrations =
+            migrations[migrationRequest.newSchema.schemaName] ?: emptyMap<Int, Migration>()
         for (v in (migrationRequest.oldSchema.schemaVersion + 1)..migrationRequest.newSchema.schemaVersion) {
             val migration = targetVersionMigrations[v]
                 ?: error("Missing migration for ${migrationRequest.newSchema.schemaName} from version ${migrationRequest.oldSchema.schemaVersion} to version ${migrationRequest.newSchema.schemaVersion}.")
@@ -166,7 +165,11 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
     }
 
     private fun deleteSchema(schema: Schema) {
-        driver.delete("Schema", "name = ? AND version = ?", arrayOf(schema.schemaName, schema.schemaVersion.toString()))
+        driver.delete(
+            "Schema",
+            "name = ? AND version = ?",
+            arrayOf(schema.schemaName, schema.schemaVersion.toString())
+        )
     }
 
     companion object {
@@ -178,7 +181,8 @@ private typealias Migration = (GraphLiteDatabase) -> Unit
 
 private class MigrationRequest(val oldSchema: Schema, val newSchema: Schema)
 
-private class GraphDriverHelper(driver: SqliteDriver, version: Long) : SqliteDriverHelper(driver, version) {
+private class GraphDriverHelper(driver: SqliteDriver, version: Long) :
+    SqliteDriverHelper(driver, version) {
     override fun onCreate(driver: SqliteDriver) {
         schemaV1.forEach { driver.execute(it) }
     }

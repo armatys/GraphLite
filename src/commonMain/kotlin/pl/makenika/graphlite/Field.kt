@@ -20,73 +20,112 @@ import pl.makenika.graphlite.impl.FieldImpl
 import pl.makenika.graphlite.impl.IndexableFieldImpl
 import pl.makenika.graphlite.impl.IndexableScalarFieldImpl
 
-interface Field<in S : Schema, T> {
-    val name: String
-    val type: String
+private enum class BaseFieldCode(val value: String) {
+    Blb("blb"),
+    Dbl("dbl"),
+    Geo("geo"),
+    Lng("lng"),
+    Txt("txt")
+}
+
+sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: Boolean) {
+    class Blob(optional: Boolean) : FieldType(BaseFieldCode.Blb, optional)
+    class DoubleFloat(optional: Boolean) : FieldType(BaseFieldCode.Dbl, optional)
+    class Geo(optional: Boolean) : FieldType(BaseFieldCode.Geo, optional)
+    class LongInt(optional: Boolean) : FieldType(BaseFieldCode.Lng, optional)
+    class Text(optional: Boolean) : FieldType(BaseFieldCode.Txt, optional)
+
+    val code: String
+        get() = baseFieldCode.value + if (optional) "?" else ""
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null) return false
+        if (other !is FieldType) return false
+
+        if (baseFieldCode != other.baseFieldCode) return false
+        if (optional != other.optional) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = baseFieldCode.hashCode()
+        result = 31 * result + optional.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "FieldType(code=$code)"
+    }
 
     companion object {
-        internal const val FIELD_TYPE_BLOB = "blb"
-        internal const val FIELD_TYPE_GEO = "geo"
-        internal const val FIELD_TYPE_LONG_INT = "lng"
-        internal const val FIELD_TYPE_DOUBLE_FLOAT = "dbl"
-        internal const val FIELD_TYPE_TEXT = "txt"
+        fun fromCode(code: String): FieldType {
+            val optional = code.endsWith('?')
+            val baseCode = code.replace("?", "")
+            val fieldCode = BaseFieldCode.values().find { it.value == baseCode }
+                ?: error("Unknown field value code: $baseCode")
+            return when (fieldCode) {
+                BaseFieldCode.Blb -> Blob(optional)
+                BaseFieldCode.Dbl -> DoubleFloat(optional)
+                BaseFieldCode.Geo -> Geo(optional)
+                BaseFieldCode.Lng -> LongInt(optional)
+                BaseFieldCode.Txt -> Text(optional)
+            }
+        }
+    }
+}
 
+interface Field<in S : Schema, T> {
+    val name: String
+    val type: FieldType
+
+    companion object {
         internal fun <S : Schema> blob(name: String): Field<S, ByteArray> =
-            make(name, FIELD_TYPE_BLOB)
+            make(name, FieldType.Blob(false))
 
         internal fun <S : Schema> blobOptional(name: String): Field<S, ByteArray?> =
-            makeOpt(name, FIELD_TYPE_BLOB)
+            make(name, FieldType.Blob(true))
 
         internal fun <S : Schema> geo(name: String): IndexableField<S, GeoBounds> =
-            makeIndexed(name, FIELD_TYPE_GEO)
+            makeIndexed(name, FieldType.Geo(false))
 
         internal fun <S : Schema> geoOptional(name: String): IndexableField<S, GeoBounds?> =
-            makeIndexedOpt(name, FIELD_TYPE_GEO)
+            makeIndexed(name, FieldType.Geo(true))
 
         internal fun <S : Schema> long(name: String): IndexableScalarField<S, Long> =
-            makeIndexedScalar(name, FIELD_TYPE_LONG_INT)
+            makeIndexedScalar(name, FieldType.LongInt(false))
 
         internal fun <S : Schema> longOptional(name: String): IndexableScalarField<S, Long?> =
-            makeIndexedScalarOpt(name, FIELD_TYPE_LONG_INT)
+            makeIndexedScalar(name, FieldType.LongInt(true))
 
         internal fun <S : Schema> double(name: String): IndexableScalarField<S, Double> =
-            makeIndexedScalar(name, FIELD_TYPE_DOUBLE_FLOAT)
+            makeIndexedScalar(name, FieldType.DoubleFloat(false))
 
         internal fun <S : Schema> doubleOptional(name: String): IndexableScalarField<S, Double?> =
-            makeIndexedScalarOpt(name, FIELD_TYPE_DOUBLE_FLOAT)
+            makeIndexedScalar(name, FieldType.DoubleFloat(true))
 
         internal fun <S : Schema> text(name: String): IndexableScalarField<S, String> =
-            makeIndexedScalar(name, FIELD_TYPE_TEXT)
+            makeIndexedScalar(name, FieldType.Text(false))
 
         internal fun <S : Schema> textOptional(name: String): IndexableScalarField<S, String?> =
-            makeIndexedScalarOpt(name, FIELD_TYPE_TEXT)
+            makeIndexedScalar(name, FieldType.Text(true))
 
-        private fun <S : Schema, T> make(name: String, type: String): Field<S, T> =
+        private fun <S : Schema, T> make(
+            name: String,
+            type: FieldType
+        ): Field<S, T> =
             FieldImpl(name, type)
 
-        private fun <S : Schema, T> makeOpt(name: String, type: String): Field<S, T?> =
-            FieldImpl(name, "$type?")
-
-        private fun <S : Schema, T> makeIndexed(name: String, type: String): IndexableField<S, T> =
-            IndexableFieldImpl(name, type)
-
-        private fun <S : Schema, T> makeIndexedOpt(
+        private fun <S : Schema, T> makeIndexed(
             name: String,
-            type: String
-        ): IndexableField<S, T?> =
-            IndexableFieldImpl(name, "$type?")
+            type: FieldType
+        ): IndexableField<S, T> = IndexableFieldImpl(name, type)
 
         private fun <S : Schema, T> makeIndexedScalar(
             name: String,
-            type: String
-        ): IndexableScalarField<S, T> =
-            IndexableScalarFieldImpl(name, type)
-
-        private fun <S : Schema, T> makeIndexedScalarOpt(
-            name: String,
-            type: String
-        ): IndexableScalarField<S, T?> =
-            IndexableScalarFieldImpl(name, "$type?")
+            type: FieldType
+        ): IndexableScalarField<S, T> = IndexableScalarFieldImpl(name, type)
     }
 }
 

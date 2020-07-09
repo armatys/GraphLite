@@ -399,21 +399,19 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         )
     }
 
-    private fun fillFieldValue(fieldType: String, value: Any?, into: SqlContentValues) {
-        val baseFieldType = baseFieldTypeName(fieldType)
-        if (baseFieldType == Field.FIELD_TYPE_BLOB && value is ByteArray?) {
-            into.put("value", value)
-        } else if (baseFieldType == Field.FIELD_TYPE_GEO && value is GeoBounds?) {
-            into.put("minLat", value?.minLat)
-            into.put("maxLat", value?.maxLat)
-            into.put("minLon", value?.minLon)
-            into.put("maxLon", value?.maxLon)
-        } else if (baseFieldType == Field.FIELD_TYPE_LONG_INT && value is Long?) {
-            into.put("value", value)
-        } else if (baseFieldType == Field.FIELD_TYPE_DOUBLE_FLOAT && value is Double?) {
-            into.put("value", value)
-        } else if (baseFieldType == Field.FIELD_TYPE_TEXT && value is String?) {
-            into.put("value", value)
+    private fun fillFieldValue(fieldType: FieldType, value: Any?, into: SqlContentValues) {
+        when (fieldType) {
+            is FieldType.Blob -> into.put("value", value as ByteArray?)
+            is FieldType.Geo -> {
+                val bounds = value as GeoBounds?
+                into.put("minLat", bounds?.minLat)
+                into.put("maxLat", bounds?.maxLat)
+                into.put("minLon", bounds?.minLon)
+                into.put("maxLon", bounds?.maxLon)
+            }
+            is FieldType.LongInt -> into.put("value", value as Long?)
+            is FieldType.DoubleFloat -> into.put("value", value as Double?)
+            is FieldType.Text -> into.put("value", value as String?)
         }
     }
 
@@ -493,17 +491,17 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun <T> readPlainFieldValue(cursor: SqliteCursorFacade, fieldType: String): T {
-        val isNullable = isFieldTypeNullable(fieldType)
-        val value: Any? = when (baseFieldTypeName(fieldType)) {
-            Field.FIELD_TYPE_BLOB -> {
+    private fun <T> readPlainFieldValue(cursor: SqliteCursorFacade, fieldType: FieldType): T {
+        val isNullable = fieldType.optional
+        val value: Any? = when (fieldType) {
+            is FieldType.Blob -> {
                 if (isNullable) {
                     cursor.findBlob("value")
                 } else {
                     cursor.getBlob("value")
                 }
             }
-            Field.FIELD_TYPE_GEO -> {
+            is FieldType.Geo -> {
                 if (isNullable) {
                     val minLat = cursor.findDouble("minLat")
                     val maxLat = cursor.findDouble("maxLat")
@@ -522,28 +520,27 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
                     GeoBounds(minLat, maxLat, minLon, maxLon)
                 }
             }
-            Field.FIELD_TYPE_LONG_INT -> {
+            is FieldType.LongInt -> {
                 if (isNullable) {
                     cursor.findLong("value")
                 } else {
                     cursor.getLong("value")
                 }
             }
-            Field.FIELD_TYPE_DOUBLE_FLOAT -> {
+            is FieldType.DoubleFloat -> {
                 if (isNullable) {
                     cursor.findDouble("value")
                 } else {
                     cursor.getDouble("value")
                 }
             }
-            Field.FIELD_TYPE_TEXT -> {
+            is FieldType.Text -> {
                 if (isNullable) {
                     cursor.findString("value")
                 } else {
                     cursor.getString("value")
                 }
             }
-            else -> error("Unknown field type: $fieldType")
         }
         @Suppress("UNCHECKED_CAST")
         return value as T
@@ -572,7 +569,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     private fun <T> updateFieldValue(
         elementId: ElementId,
         fieldId: FieldId,
-        fieldType: String,
+        fieldType: FieldType,
         value: T
     ) {
         val fieldValueTableName = getFieldValueTableName(fieldId)

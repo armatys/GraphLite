@@ -60,6 +60,7 @@ abstract class Schema(val schemaName: String, val schemaVersion: Long) {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
+        if (other == null) return false
         if (other !is Schema) return false
 
         if (schemaName != other.schemaName) return false

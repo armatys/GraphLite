@@ -89,7 +89,7 @@ fun createTableFieldValueBlob(fieldId: FieldId, isValueOptional: Boolean): Array
     )
 }
 
-fun createTableFieldValueInt(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueLongInt(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -107,7 +107,7 @@ fun createTableFieldValueInt(fieldId: FieldId, isValueOptional: Boolean): Array<
     )
 }
 
-fun createTableFieldValueReal(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueDoubleFloat(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)

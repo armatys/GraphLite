@@ -17,7 +17,6 @@
 package pl.makenika.graphlite
 
 import pl.makenika.graphlite.impl.MutableFieldMapImpl
-import pl.makenika.graphlite.impl.isFieldTypeNullable
 
 interface FieldMap<S : Schema> {
     fun contains(field: Field<S, *>): Boolean
@@ -44,7 +43,7 @@ class FieldMapBuilder<S : Schema>(private val schema: S) {
     fun build(): FieldMap<S> {
         for ((_, field) in schema.getFields<S>()) {
             if (!fieldMap.contains(field)) {
-                if (isFieldTypeNullable(field.type)) {
+                if (field.type.optional) {
                     fieldMap[field] = null
                 } else {
                     error("Cannot create FieldMap: field ${field.name} is missing.")
