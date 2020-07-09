@@ -219,14 +219,6 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema, T> updateField(
-        edge: Edge<S>,
-        field: Field<S, T>,
-        value: (T) -> T
-    ): Edge<S> {
-        return updateField(edge, field, value(edge[field]))
-    }
-
     override fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
             val updatedId = updateFieldValues(
@@ -304,14 +296,6 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             updateFieldValue(node.id, node.fieldMap.schema(), field, value)
             query(NodeMatch(node.fieldMap.schema(), Where.id(node.id))).first()
         }
-    }
-
-    override fun <S : Schema, T> updateField(
-        node: Node<S>,
-        field: Field<S, T>,
-        value: (T) -> T
-    ): Node<S> {
-        return updateField(node, field, value(node[field]))
     }
 
     override fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S> {
