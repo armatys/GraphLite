@@ -16,7 +16,7 @@
 
 package pl.makenika.graphlite.sql
 
-internal abstract class SqliteDriverHelper constructor(private val driver: SqliteDriver, private val version: Int) {
+internal abstract class SqliteDriverHelper constructor(private val driver: SqliteDriver, private val version: Long) {
     fun open(): SqliteDriver {
         onConfigure(driver)
         when (val currentDbVersion = driver.getDbVersion()) {
@@ -33,7 +33,7 @@ internal abstract class SqliteDriverHelper constructor(private val driver: Sqlit
         return driver
     }
 
-    private fun migrateIfNeeded(driver: SqliteDriver, currentDbVersion: Int, newVersion: Int) {
+    private fun migrateIfNeeded(driver: SqliteDriver, currentDbVersion: Long, newVersion: Long) {
         if (currentDbVersion == newVersion) {
             return
         }
@@ -48,6 +48,6 @@ internal abstract class SqliteDriverHelper constructor(private val driver: Sqlit
 
     open fun onConfigure(driver: SqliteDriver) {}
     abstract fun onCreate(driver: SqliteDriver)
-    abstract fun onUpgrade(driver: SqliteDriver, oldVersion: Int, newVersion: Int)
+    abstract fun onUpgrade(driver: SqliteDriver, oldVersion: Long, newVersion: Long)
     open fun onOpen(driver: SqliteDriver) {}
 }

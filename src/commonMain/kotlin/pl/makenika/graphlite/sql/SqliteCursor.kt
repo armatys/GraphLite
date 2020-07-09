@@ -21,13 +21,32 @@ import pl.makenika.graphlite.Cleanable
 expect class SqliteCursorFacade : Cleanable {
     fun findBlob(columnName: String): ByteArray?
     fun findDouble(columnName: String): Double?
-    fun findInt(columnName: String): Int?
+    fun findLong(columnName: String): Long?
     fun findString(columnName: String): String?
 
-    fun getBlob(columnName: String): ByteArray
-    fun getDouble(columnName: String): Double
-    fun getInt(columnName: String): Int
-    fun getString(columnName: String): String
-
     fun moveToNext(): Boolean
+}
+
+fun SqliteCursorFacade.findBoolean(columnName: String): Boolean? {
+    return findLong(columnName)?.let { it == 1L }
+}
+
+fun SqliteCursorFacade.getBoolean(columnName: String): Boolean {
+    return findBoolean(columnName) ?: error("Column $columnName is null.")
+}
+
+fun SqliteCursorFacade.getBlob(columnName: String): ByteArray {
+    return findBlob(columnName) ?: error("Column $columnName is null.")
+}
+
+fun SqliteCursorFacade.getDouble(columnName: String): Double {
+    return findDouble(columnName) ?: error("Column $columnName is null.")
+}
+
+fun SqliteCursorFacade.getLong(columnName: String): Long {
+    return findLong(columnName) ?: error("Column $columnName is null.")
+}
+
+fun SqliteCursorFacade.getString(columnName: String): String {
+    return findString(columnName) ?: error("Column $columnName is null.")
 }

@@ -16,7 +16,7 @@
 
 package pl.makenika.graphlite
 
-data class GeoCoordinates(
+data class GeoBounds(
     val minLat: Double,
     val maxLat: Double,
     val minLon: Double,

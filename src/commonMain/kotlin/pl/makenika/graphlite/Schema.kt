@@ -16,7 +16,7 @@
 
 package pl.makenika.graphlite
 
-abstract class Schema(val schemaName: String, val schemaVersion: Int) {
+abstract class Schema(val schemaName: String, val schemaVersion: Long) {
     private val fields = mutableMapOf<String, Field<*, *>>()
     private var isFrozen = false
 
@@ -31,7 +31,8 @@ abstract class Schema(val schemaName: String, val schemaVersion: Int) {
     }
 
     @Suppress("UNCHECKED_CAST")
-    internal fun <S : Schema> getFields(): Map<String, Field<S, Any?>> = fields as Map<String, Field<S, Any?>>
+    internal fun <S : Schema> getFields(): Map<String, Field<S, Any?>> =
+        fields as Map<String, Field<S, Any?>>
 
     protected fun <S : Schema> S.optional(): OptionalFieldBuilder<S> {
         return OptionalFieldBuilder(this)
@@ -41,16 +42,16 @@ abstract class Schema(val schemaName: String, val schemaVersion: Int) {
         return addField(Field.blob(name))
     }
 
-    protected fun <S : Schema> S.geoField(name: String): IndexableField<S, GeoCoordinates> {
+    protected fun <S : Schema> S.doubleField(name: String): IndexableScalarField<S, Double> {
+        return addField(Field.double(name))
+    }
+
+    protected fun <S : Schema> S.geoField(name: String): IndexableField<S, GeoBounds> {
         return addField(Field.geo(name))
     }
 
-    protected fun <S : Schema> S.intField(name: String): IndexableScalarField<S, Int> {
-        return addField(Field.int(name))
-    }
-
-    protected fun <S : Schema> S.realField(name: String): IndexableScalarField<S, Double> {
-        return addField(Field.real(name))
+    protected fun <S : Schema> S.longField(name: String): IndexableScalarField<S, Long> {
+        return addField(Field.long(name))
     }
 
     protected fun <S : Schema> S.textField(name: String): IndexableScalarField<S, String> {
@@ -70,7 +71,7 @@ abstract class Schema(val schemaName: String, val schemaVersion: Int) {
 
     override fun hashCode(): Int {
         var result = schemaName.hashCode()
-        result = 31 * result + schemaVersion
+        result = 31 * result + schemaVersion.hashCode()
         result = 31 * result + fields.hashCode()
         return result
     }

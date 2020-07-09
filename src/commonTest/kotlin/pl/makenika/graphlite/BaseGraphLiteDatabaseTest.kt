@@ -52,13 +52,13 @@ abstract class BaseGraphLiteDatabaseTest {
     @Test
     fun getOrCreateExistingNode() {
         val a = tested.createNode("test", PersonV1 { it[name] = "Jane" })
-        val b = tested.getOrCreateNode(PersonV1, "test") { PersonV1 { it[name] = "Joe" } }
+        val b = tested.getOrCreateNode("test", PersonV1 { it[name] = "Joe" })
         assertEquals(a, b)
     }
 
     @Test
     fun getOrCreateMissingNode() {
-        val a = tested.getOrCreateNode(PersonV1, "test") { PersonV1 { it[name] = "Joe" } }
+        val a = tested.getOrCreateNode("test", PersonV1 { it[name] = "Joe" })
         assertEquals("Joe", a[PersonV1.name])
     }
 

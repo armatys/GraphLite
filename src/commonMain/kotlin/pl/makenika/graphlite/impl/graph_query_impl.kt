@@ -99,13 +99,13 @@ internal sealed class WhereImpl<S : Schema> : Where<S> {
     class FullText<S : Schema>(val field: IndexableScalarField<S, String>, val value: String) : WhereImpl<S>()
     class GreaterThan<S : Schema, V : Any, T>(val field: IndexableScalarField<S, T>, val value: V) : WhereImpl<S>()
     class Id<S : Schema>(val id: ElementId) : WhereImpl<S>()
-    class Inside<S : Schema, T : GeoCoordinates?>(val field: IndexableField<S, T>, val value: GeoCoordinates) :
+    class Inside<S : Schema, T : GeoBounds?>(val field: IndexableField<S, T>, val value: GeoBounds) :
         WhereImpl<S>()
 
     class LessThan<S : Schema, V : Any, T>(val field: IndexableScalarField<S, T>, val value: V) : WhereImpl<S>()
     class Name<S : Schema>(val name: String) : WhereImpl<S>()
     class Or<S : Schema>(val a: Where<S>, val b: Where<S>) : WhereImpl<S>()
-    class Overlaps<S : Schema, T : GeoCoordinates?>(val field: IndexableField<S, T>, val value: GeoCoordinates) :
+    class Overlaps<S : Schema, T : GeoBounds?>(val field: IndexableField<S, T>, val value: GeoBounds) :
         WhereImpl<S>()
 
     class Within<S : Schema, T>(val field: IndexableScalarField<S, T>, val values: List<T>) : WhereImpl<S>()

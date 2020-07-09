@@ -46,12 +46,14 @@ class JvmSqliteDriver private constructor(private val connection: Connection) : 
 
     override fun endTransaction() {
         val transactionCount = transactions.decrementAndGet()
-        if (successful.get() != transactionCount) {
-            connection.rollback()
-            transactions.set(0)
-            connection.autoCommit = true
-        } else if (transactionCount == 0) {
-            connection.commit()
+        if (transactionCount == 0) {
+            if (successful.get() != transactionCount) {
+                connection.rollback()
+                transactions.set(0)
+                connection.autoCommit = true
+            } else {
+                connection.commit()
+            }
             connection.autoCommit = true
         }
     }
@@ -80,7 +82,7 @@ class JvmSqliteDriver private constructor(private val connection: Connection) : 
         values.keySet().forEachIndexed { i, key ->
             when (val value = values.get(key)) {
                 is SqlValue.SqlBlob -> stmt.setBytes(i + 1, value.value)
-                is SqlValue.SqlInt -> stmt.setInt(i + 1, value.value)
+                is SqlValue.SqlLong -> stmt.setLong(i + 1, value.value)
                 SqlValue.SqlNull -> stmt.setNull(i + 1, Types.NULL)
                 is SqlValue.SqlReal -> stmt.setDouble(i + 1, value.value)
                 is SqlValue.SqlString -> stmt.setString(i + 1, value.value)
@@ -114,7 +116,7 @@ class JvmSqliteDriver private constructor(private val connection: Connection) : 
         values.keySet().forEachIndexed { i, key ->
             when (val value = values.get(key)) {
                 is SqlValue.SqlBlob -> stmt.setBytes(i + 1, value.value)
-                is SqlValue.SqlInt -> stmt.setInt(i + 1, value.value)
+                is SqlValue.SqlLong -> stmt.setLong(i + 1, value.value)
                 SqlValue.SqlNull -> stmt.setNull(i + 1, Types.NULL)
                 is SqlValue.SqlReal -> stmt.setDouble(i + 1, value.value)
                 is SqlValue.SqlString -> stmt.setString(i + 1, value.value)

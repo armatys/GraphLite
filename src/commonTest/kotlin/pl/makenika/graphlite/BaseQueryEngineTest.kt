@@ -81,9 +81,9 @@ abstract class BaseQueryEngineTest {
 
     @Test
     fun byGeoValueQuery() {
-        val coordinates = GeoCoordinates(1.0, 1.02, -5.5, -5.4)
-        val tree = tested.createNode(Tree { it[location] = coordinates })
-        val m = NodeMatch(Tree, Where.eq(Tree.location, coordinates))
+        val bounds = GeoBounds(1.0, 1.02, -5.5, -5.4)
+        val tree = tested.createNode(Tree { it[location] = bounds })
+        val m = NodeMatch(Tree, Where.eq(Tree.location, bounds))
         val trees = tested.query(m).toList()
         assertEquals(1, trees.size)
         assertEquals(tree, trees[0])
@@ -151,20 +151,20 @@ abstract class BaseQueryEngineTest {
 
     @Test
     fun byGeoInsideQuery() {
-        val a = tested.createNode(Tree { it[location] = GeoCoordinates(5.0, 5.1, 10.0, 10.05) })
-        tested.createNode(Tree { it[location] = GeoCoordinates(6.0, 6.1, 10.0, 10.05) })
-        tested.createNode(Tree { it[location] = GeoCoordinates(15.0, 15.1, -20.0, -19.95) })
-        val m = NodeMatch(Tree, Where.inside(Tree.location, GeoCoordinates(4.0, 6.05, 9.0, 11.0)))
+        val a = tested.createNode(Tree { it[location] = GeoBounds(5.0, 5.1, 10.0, 10.05) })
+        tested.createNode(Tree { it[location] = GeoBounds(6.0, 6.1, 10.0, 10.05) })
+        tested.createNode(Tree { it[location] = GeoBounds(15.0, 15.1, -20.0, -19.95) })
+        val m = NodeMatch(Tree, Where.inside(Tree.location, GeoBounds(4.0, 6.05, 9.0, 11.0)))
         val trees = tested.query(m).toSet()
         assertEquals(setOf(a), trees)
     }
 
     @Test
     fun byGeoOverlapsQuery() {
-        val a = tested.createNode(Tree { it[location] = GeoCoordinates(5.0, 6.0, 10.0, 11.0) })
-        val b = tested.createNode(Tree { it[location] = GeoCoordinates(6.0, 7.0, 10.0, 11.0) })
-        tested.createNode(Tree { it[location] = GeoCoordinates(15.0, 16.0, -20.0, -19.0) })
-        val m = NodeMatch(Tree, Where.overlaps(Tree.location, GeoCoordinates(4.0, 6.05, 9.0, 11.0)))
+        val a = tested.createNode(Tree { it[location] = GeoBounds(5.0, 6.0, 10.0, 11.0) })
+        val b = tested.createNode(Tree { it[location] = GeoBounds(6.0, 7.0, 10.0, 11.0) })
+        tested.createNode(Tree { it[location] = GeoBounds(15.0, 16.0, -20.0, -19.0) })
+        val m = NodeMatch(Tree, Where.overlaps(Tree.location, GeoBounds(4.0, 6.05, 9.0, 11.0)))
         val trees = tested.query(m).toSet()
         assertEquals(setOf(a, b), trees)
     }
@@ -382,7 +382,7 @@ abstract class BaseQueryEngineTest {
         tested.createNode(Tree { it[age] = 25 })
         tested.createNode(Tree { it[age] = 47 })
         val trees = tested.query(NodeMatch(Tree, order = Order.asc(Tree.age))).toList()
-        assertEquals(listOf(25, 30, 47), trees.map { it { age } })
+        assertEquals(listOf(25L, 30L, 47L), trees.map { it { age } })
     }
 
     @Test
@@ -391,7 +391,7 @@ abstract class BaseQueryEngineTest {
         tested.createNode(Tree { it[age] = 25 })
         tested.createNode(Tree { it[age] = 47 })
         val trees = tested.query(NodeMatch(Tree, order = Order.desc(Tree.age))).toList()
-        assertEquals(listOf(47, 30, 25), trees.map { it { age } })
+        assertEquals(listOf<Long>(47, 30, 25), trees.map { it { age } })
     }
 
     @Test
@@ -432,7 +432,7 @@ abstract class BaseQueryEngineTest {
         })
         val trees =
             tested.query(NodeMatch(Tree, Where.eq(Tree.name, "Oak"), Order.asc(Tree.age))).toList()
-        assertEquals(listOf(2, 5, 13), trees.map { it { age } })
+        assertEquals(listOf<Long>(2, 5, 13), trees.map { it { age } })
     }
 
     // TODO test using "EXPLAIN QUERY PLAN"

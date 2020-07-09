@@ -73,10 +73,10 @@ class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : 
 
         fun newInstance(
             context: Context,
-            dbName: String,
+            dbPath: String,
             password: String? = null
         ): AndroidSqliteDriver {
-            val sqliteDb = AndroidOpenHelper(context, dbName, password).writableDatabase
+            val sqliteDb = AndroidOpenHelper(context, dbPath, password).writableDatabase
             return AndroidSqliteDriver(sqliteDb)
         }
 

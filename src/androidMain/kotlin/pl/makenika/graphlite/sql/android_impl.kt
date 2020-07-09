@@ -31,28 +31,12 @@ actual class SqliteCursorFacade(private val cursor: Cursor) : Cleanable {
         return getValue(columnName, cursor::getDouble)
     }
 
-    actual fun findInt(columnName: String): Int? {
-        return getValue(columnName, cursor::getInt)
+    actual fun findLong(columnName: String): Long? {
+        return getValue(columnName, cursor::getLong)
     }
 
     actual fun findString(columnName: String): String? {
         return getValue(columnName, cursor::getString)
-    }
-
-    actual fun getBlob(columnName: String): ByteArray {
-        return findBlob(columnName) ?: error("Column $columnName is null.")
-    }
-
-    actual fun getDouble(columnName: String): Double {
-        return findDouble(columnName) ?: error("Column $columnName is null.")
-    }
-
-    actual fun getInt(columnName: String): Int {
-        return findInt(columnName) ?: error("Column $columnName is null.")
-    }
-
-    actual fun getString(columnName: String): String {
-        return findString(columnName) ?: error("Column $columnName is null.")
     }
 
     actual fun moveToNext(): Boolean {

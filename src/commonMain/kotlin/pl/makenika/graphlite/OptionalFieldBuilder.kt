@@ -21,16 +21,16 @@ class OptionalFieldBuilder<S : Schema> internal constructor(private val schema: 
         return schema.addField(Field.blobOptional(name))
     }
 
-    fun geoField(name: String): IndexableField<S, GeoCoordinates?> {
+    fun doubleField(name: String): IndexableScalarField<S, Double?> {
+        return schema.addField(Field.doubleOptional(name))
+    }
+
+    fun geoField(name: String): IndexableField<S, GeoBounds?> {
         return schema.addField(Field.geoOptional(name))
     }
 
-    fun intField(name: String): IndexableScalarField<S, Int?> {
-        return schema.addField(Field.intOptional(name))
-    }
-
-    fun realField(name: String): IndexableScalarField<S, Double?> {
-        return schema.addField(Field.realOptional(name))
+    fun longField(name: String): IndexableScalarField<S, Long?> {
+        return schema.addField(Field.longOptional(name))
     }
 
     fun textField(name: String): IndexableScalarField<S, String?> {

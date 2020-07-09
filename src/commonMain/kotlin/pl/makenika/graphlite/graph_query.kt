@@ -91,10 +91,10 @@ interface Where<S : Schema> {
         fun <S : Schema> fts(field: IndexableScalarField<S, String>, value: String): Where<S> =
             WhereImpl.FullText(field, value)
 
-        fun <S : Schema, T : GeoCoordinates?> inside(field: IndexableField<S, T>, value: GeoCoordinates): Where<S> =
+        fun <S : Schema, T : GeoBounds?> inside(field: IndexableField<S, T>, value: GeoBounds): Where<S> =
             WhereImpl.Inside(field, value)
 
-        fun <S : Schema, T : GeoCoordinates?> overlaps(field: IndexableField<S, T>, value: GeoCoordinates): Where<S> =
+        fun <S : Schema, T : GeoBounds?> overlaps(field: IndexableField<S, T>, value: GeoBounds): Where<S> =
             WhereImpl.Overlaps(field, value)
     }
 }

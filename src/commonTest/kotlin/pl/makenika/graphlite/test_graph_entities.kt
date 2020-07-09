@@ -7,7 +7,7 @@ object Animal : Schema("animal", 1) {
 object Likes : Schema("likes", 1)
 
 object LikesV2 : Schema("likes", 2) {
-    val level = intField("l")
+    val level = longField("l")
 }
 
 object Loves : Schema("loves", 1)
@@ -22,8 +22,8 @@ object PersonV2 : Schema("person", 2) {
 }
 
 object Tree : Schema("tree", 1) {
-    val age = optional().intField("a")
-    val diameter = optional().realField("d")
+    val age = optional().longField("a")
+    val diameter = optional().doubleField("d")
     val location = optional().geoField("l")
     val name = optional().textField("n")
     val secret = optional().blobField("s")

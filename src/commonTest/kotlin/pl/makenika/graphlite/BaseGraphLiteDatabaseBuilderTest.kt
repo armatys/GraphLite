@@ -58,7 +58,7 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
             .register(PersonV2)
             .migration(Likes, LikesV2) { db ->
                 db.query(EdgeMatch(Likes)).forEach { edge ->
-                    db.updateFields(edge, LikesV2 { it[level] = 100 })
+                    db.updateFields(edge, LikesV2 { it[level] = 100L })
                 }
             }
             .migration(PersonV1, PersonV2) { db ->

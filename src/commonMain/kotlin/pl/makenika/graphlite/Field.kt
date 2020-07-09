@@ -25,34 +25,35 @@ interface Field<in S : Schema, T> {
     val type: String
 
     companion object {
-        internal const val FIELD_TYPE_BLOB = "blob"
+        internal const val FIELD_TYPE_BLOB = "blb"
         internal const val FIELD_TYPE_GEO = "geo"
-        internal const val FIELD_TYPE_INT = "int"
-        internal const val FIELD_TYPE_REAL = "real"
-        internal const val FIELD_TYPE_TEXT = "text"
+        internal const val FIELD_TYPE_LONG_INT = "lng"
+        internal const val FIELD_TYPE_DOUBLE_FLOAT = "dbl"
+        internal const val FIELD_TYPE_TEXT = "txt"
 
-        internal fun <S : Schema> blob(name: String): Field<S, ByteArray> = make(name, FIELD_TYPE_BLOB)
-        internal fun <S : Schema> blobOptional(name: String): Field<S, ByteArray?> = makeOpt(name, FIELD_TYPE_BLOB)
+        internal fun <S : Schema> blob(name: String): Field<S, ByteArray> =
+            make(name, FIELD_TYPE_BLOB)
 
-        internal fun <S : Schema> geo(name: String): IndexableField<S, GeoCoordinates> =
+        internal fun <S : Schema> blobOptional(name: String): Field<S, ByteArray?> =
+            makeOpt(name, FIELD_TYPE_BLOB)
+
+        internal fun <S : Schema> geo(name: String): IndexableField<S, GeoBounds> =
             makeIndexed(name, FIELD_TYPE_GEO)
 
-        internal fun <S : Schema> geoOptional(name: String): IndexableField<S, GeoCoordinates?> =
+        internal fun <S : Schema> geoOptional(name: String): IndexableField<S, GeoBounds?> =
             makeIndexedOpt(name, FIELD_TYPE_GEO)
 
-        internal fun <S : Schema> int(name: String): IndexableScalarField<S, Int> =
-            makeIndexedScalar(name, FIELD_TYPE_INT)
+        internal fun <S : Schema> long(name: String): IndexableScalarField<S, Long> =
+            makeIndexedScalar(name, FIELD_TYPE_LONG_INT)
 
-        internal fun <S : Schema> intOptional(name: String): IndexableScalarField<S, Int?> =
-            makeIndexedScalarOpt(name, FIELD_TYPE_INT)
+        internal fun <S : Schema> longOptional(name: String): IndexableScalarField<S, Long?> =
+            makeIndexedScalarOpt(name, FIELD_TYPE_LONG_INT)
 
-        // TODO json type
+        internal fun <S : Schema> double(name: String): IndexableScalarField<S, Double> =
+            makeIndexedScalar(name, FIELD_TYPE_DOUBLE_FLOAT)
 
-        internal fun <S : Schema> real(name: String): IndexableScalarField<S, Double> =
-            makeIndexedScalar(name, FIELD_TYPE_REAL)
-
-        internal fun <S : Schema> realOptional(name: String): IndexableScalarField<S, Double?> =
-            makeIndexedScalarOpt(name, FIELD_TYPE_REAL)
+        internal fun <S : Schema> doubleOptional(name: String): IndexableScalarField<S, Double?> =
+            makeIndexedScalarOpt(name, FIELD_TYPE_DOUBLE_FLOAT)
 
         internal fun <S : Schema> text(name: String): IndexableScalarField<S, String> =
             makeIndexedScalar(name, FIELD_TYPE_TEXT)
@@ -69,13 +70,22 @@ interface Field<in S : Schema, T> {
         private fun <S : Schema, T> makeIndexed(name: String, type: String): IndexableField<S, T> =
             IndexableFieldImpl(name, type)
 
-        private fun <S : Schema, T> makeIndexedOpt(name: String, type: String): IndexableField<S, T?> =
+        private fun <S : Schema, T> makeIndexedOpt(
+            name: String,
+            type: String
+        ): IndexableField<S, T?> =
             IndexableFieldImpl(name, "$type?")
 
-        private fun <S : Schema, T> makeIndexedScalar(name: String, type: String): IndexableScalarField<S, T> =
+        private fun <S : Schema, T> makeIndexedScalar(
+            name: String,
+            type: String
+        ): IndexableScalarField<S, T> =
             IndexableScalarFieldImpl(name, type)
 
-        private fun <S : Schema, T> makeIndexedScalarOpt(name: String, type: String): IndexableScalarField<S, T?> =
+        private fun <S : Schema, T> makeIndexedScalarOpt(
+            name: String,
+            type: String
+        ): IndexableScalarField<S, T?> =
             IndexableScalarFieldImpl(name, "$type?")
     }
 }
@@ -83,5 +93,3 @@ interface Field<in S : Schema, T> {
 interface IndexableField<in S : Schema, T> : Field<S, T>
 
 interface IndexableScalarField<in S : Schema, T> : IndexableField<S, T>
-
-// TODO use specific (maybe sealed) sub-classes of Field, e.g. IntField, GeoField etc.

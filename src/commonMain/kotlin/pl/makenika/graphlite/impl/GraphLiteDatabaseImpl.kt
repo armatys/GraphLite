@@ -24,7 +24,8 @@ import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
 import pl.makenika.graphlite.impl.GraphSqlUtils.getSchemaFields
 import pl.makenika.graphlite.sql.*
 
-internal class GraphLiteDatabaseImpl internal constructor(private val driver: SqliteDriver) : GraphLiteDatabase {
+internal class GraphLiteDatabaseImpl internal constructor(private val driver: SqliteDriver) :
+    GraphLiteDatabase {
     private val queryEngine by lazy { QueryEngine(driver) }
 
     override fun close() {
@@ -57,7 +58,11 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun connectOrReplace(edgeName: String, nodeName: String, outgoing: Boolean?): Connection {
+    override fun connectOrReplace(
+        edgeName: String,
+        nodeName: String,
+        outgoing: Boolean?
+    ): Connection {
         return transaction {
             disconnect(edgeName, nodeName)
             connect(edgeName, nodeName, outgoing)
@@ -99,7 +104,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
                         val connId = cursor.getString("id")
                         val edgeName = cursor.getString("edgeName")
                         val nodeName = cursor.getString("nodeName")
-                        val outgoing = cursor.findInt("outgoing")?.let { it == 1 }
+                        val outgoing = cursor.findBoolean("outgoing")
                         yield(Connection(ConnectionIdImpl(connId), edgeName, nodeName, outgoing))
                     }
                 }
@@ -132,17 +137,18 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     override fun findConnection(edgeName: String, nodeName: String): Connection? {
         val bindings = arrayOf(edgeName, nodeName)
         return driver.transaction {
-            driver.query("SELECT * FROM Connection WHERE edgeName = ? AND nodeName = ?", bindings).use { cursor ->
-                if (cursor.moveToNext()) {
-                    val connId = cursor.getString("id")
-                    val eName = cursor.getString("edgeName")
-                    val nName = cursor.getString("nodeName")
-                    val outgoing = cursor.findInt("outgoing")?.let { it == 1 }
-                    Connection(ConnectionIdImpl(connId), eName, nName, outgoing)
-                } else {
-                    null
+            driver.query("SELECT * FROM Connection WHERE edgeName = ? AND nodeName = ?", bindings)
+                .use { cursor ->
+                    if (cursor.moveToNext()) {
+                        val connId = cursor.getString("id")
+                        val eName = cursor.getString("edgeName")
+                        val nName = cursor.getString("nodeName")
+                        val outgoing = cursor.findBoolean("outgoing")
+                        Connection(ConnectionIdImpl(connId), eName, nName, outgoing)
+                    } else {
+                        null
+                    }
                 }
-            }
         }
     }
 
@@ -173,7 +179,8 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return driver.transaction {
             val oldElementId = getElementId(driver, name)
             if (oldElementId != null) {
-                val oldSchema = findElementSchema(oldElementId) ?: error("Could not find schema for edge name=$name")
+                val oldSchema = findElementSchema(oldElementId)
+                    ?: error("Could not find schema for edge name=$name")
                 deleteFieldValues(oldElementId, oldSchema)
                 createElement(fieldMap, id, name, ElementType.Edge, updateOrReplace = true)
             } else {
@@ -195,13 +202,12 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return findElementSchema(id)
     }
 
-    override fun <S : Schema> getOrCreateEdge(schema: S, name: String, fieldMap: () -> FieldMap<S>): Edge<S> {
+    override fun <S : Schema> getOrCreateEdge(name: String, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
-            query(EdgeMatch(schema, Where.name(name))).firstOrNull() ?: run {
+            query(EdgeMatch(fieldMap.schema(), Where.name(name))).firstOrNull() ?: run {
                 val id = EdgeIdImpl(uuid4().toString())
-                val fields = fieldMap()
-                createElement(fields, id, name, ElementType.Edge)
-                Edge(id, name, fields)
+                createElement(fieldMap, id, name, ElementType.Edge)
+                Edge(id, name, fieldMap)
             }
         }
     }
@@ -211,6 +217,14 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             updateFieldValue(edge.id, edge.fieldMap.schema(), field, value)
             query(EdgeMatch(edge.fieldMap.schema(), Where.id(edge.id))).first()
         }
+    }
+
+    override fun <S : Schema, T> updateField(
+        edge: Edge<S>,
+        field: Field<S, T>,
+        value: (T) -> T
+    ): Edge<S> {
+        return updateField(edge, field, value(edge[field]))
     }
 
     override fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S> {
@@ -252,7 +266,8 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return driver.transaction {
             val oldElementId = getElementId(driver, name)
             if (oldElementId != null) {
-                val oldSchema = findElementSchema(oldElementId) ?: error("Could not find schema for node name=$name")
+                val oldSchema = findElementSchema(oldElementId)
+                    ?: error("Could not find schema for node name=$name")
                 deleteFieldValues(oldElementId, oldSchema)
                 createElement(fieldMap, id, name, ElementType.Node, updateOrReplace = true)
             } else {
@@ -274,13 +289,12 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return findElementSchema(id)
     }
 
-    override fun <S : Schema> getOrCreateNode(schema: S, name: String, fieldMap: () -> FieldMap<S>): Node<S> {
+    override fun <S : Schema> getOrCreateNode(name: String, fieldMap: FieldMap<S>): Node<S> {
         return driver.transaction {
-            query(NodeMatch(schema, Where.name(name))).firstOrNull() ?: run {
+            query(NodeMatch(fieldMap.schema(), Where.name(name))).firstOrNull() ?: run {
                 val id = NodeIdImpl(uuid4().toString())
-                val fields = fieldMap()
-                createElement(fields, id, name, ElementType.Node)
-                Node(id, name, fields)
+                createElement(fieldMap, id, name, ElementType.Node)
+                Node(id, name, fieldMap)
             }
         }
     }
@@ -290,6 +304,14 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             updateFieldValue(node.id, node.fieldMap.schema(), field, value)
             query(NodeMatch(node.fieldMap.schema(), Where.id(node.id))).first()
         }
+    }
+
+    override fun <S : Schema, T> updateField(
+        node: Node<S>,
+        field: Field<S, T>,
+        value: (T) -> T
+    ): Node<S> {
+        return updateField(node, field, value(node[field]))
     }
 
     override fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S> {
@@ -386,21 +408,25 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun deleteElementConnections(elementName: String) {
-        driver.delete("Connection", "edgeName = ? OR nodeName = ?", arrayOf(elementName, elementName))
+        driver.delete(
+            "Connection",
+            "edgeName = ? OR nodeName = ?",
+            arrayOf(elementName, elementName)
+        )
     }
 
     private fun fillFieldValue(fieldType: String, value: Any?, into: SqlContentValues) {
         val baseFieldType = baseFieldTypeName(fieldType)
         if (baseFieldType == Field.FIELD_TYPE_BLOB && value is ByteArray?) {
             into.put("value", value)
-        } else if (baseFieldType == Field.FIELD_TYPE_GEO && value is GeoCoordinates?) {
+        } else if (baseFieldType == Field.FIELD_TYPE_GEO && value is GeoBounds?) {
             into.put("minLat", value?.minLat)
             into.put("maxLat", value?.maxLat)
             into.put("minLon", value?.minLon)
             into.put("maxLon", value?.maxLon)
-        } else if (baseFieldType == Field.FIELD_TYPE_INT && value is Int?) {
+        } else if (baseFieldType == Field.FIELD_TYPE_LONG_INT && value is Long?) {
             into.put("value", value)
-        } else if (baseFieldType == Field.FIELD_TYPE_REAL && value is Double?) {
+        } else if (baseFieldType == Field.FIELD_TYPE_DOUBLE_FLOAT && value is Double?) {
             into.put("value", value)
         } else if (baseFieldType == Field.FIELD_TYPE_TEXT && value is String?) {
             into.put("value", value)
@@ -416,7 +442,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
                 if (it.moveToNext()) {
                     val id = it.getString("id")
                     val name = it.getString("name")
-                    val version = it.getInt("version")
+                    val version = it.getLong("version")
                     Pair(id, object : Schema(name, version) {})
                 } else {
                     return@transaction null
@@ -500,7 +526,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
                     val minLon = cursor.findDouble("minLon")
                     val maxLon = cursor.findDouble("maxLon")
                     if (minLat != null && maxLat != null && minLon != null && maxLon != null) {
-                        GeoCoordinates(minLat, maxLat, minLon, maxLon)
+                        GeoBounds(minLat, maxLat, minLon, maxLon)
                     } else {
                         null
                     }
@@ -509,17 +535,17 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
                     val maxLat = cursor.getDouble("maxLat")
                     val minLon = cursor.getDouble("minLon")
                     val maxLon = cursor.getDouble("maxLon")
-                    GeoCoordinates(minLat, maxLat, minLon, maxLon)
+                    GeoBounds(minLat, maxLat, minLon, maxLon)
                 }
             }
-            Field.FIELD_TYPE_INT -> {
+            Field.FIELD_TYPE_LONG_INT -> {
                 if (isNullable) {
-                    cursor.findInt("value")
+                    cursor.findLong("value")
                 } else {
-                    cursor.getInt("value")
+                    cursor.getLong("value")
                 }
             }
-            Field.FIELD_TYPE_REAL -> {
+            Field.FIELD_TYPE_DOUBLE_FLOAT -> {
                 if (isNullable) {
                     cursor.findDouble("value")
                 } else {
@@ -539,7 +565,12 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return value as T
     }
 
-    private fun <S : Schema, T> updateFieldValue(elementId: ElementId, schema: S, field: Field<S, T>, value: T) {
+    private fun <S : Schema, T> updateFieldValue(
+        elementId: ElementId,
+        schema: S,
+        field: Field<S, T>,
+        value: T
+    ) {
         val fieldId = getFieldId(driver, field, schema)
         updateFieldValue(elementId, fieldId, field.type, value)
     }
@@ -554,7 +585,12 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         updateFieldValue(elementId, fieldId, field.type, value)
     }
 
-    private fun <T> updateFieldValue(elementId: ElementId, fieldId: FieldId, fieldType: String, value: T) {
+    private fun <T> updateFieldValue(
+        elementId: ElementId,
+        fieldId: FieldId,
+        fieldType: String,
+        value: T
+    ) {
         val fieldValueTableName = getFieldValueTableName(fieldId)
 
         driver.delete(fieldValueTableName, "elementId = ?", arrayOf(elementId.toString()))

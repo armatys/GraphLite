@@ -53,8 +53,9 @@ interface GraphLiteDatabase {
     fun deleteEdge(name: String, withConnections: Boolean = true): Boolean
     fun deleteEdge(id: EdgeId, withConnections: Boolean = true): Boolean
     fun findEdgeSchema(id: EdgeId): Schema?
-    fun <S : Schema> getOrCreateEdge(schema: S, name: String, fieldMap: () -> FieldMap<S>): Edge<S>
+    fun <S : Schema> getOrCreateEdge(name: String, fieldMap: FieldMap<S>): Edge<S>
     fun <S : Schema, T> updateField(edge: Edge<S>, field: Field<S, T>, value: T): Edge<S>
+    fun <S : Schema, T> updateField(edge: Edge<S>, field: Field<S, T>, value: (T) -> T): Edge<S>
     fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S>
 
     fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S>
@@ -63,8 +64,9 @@ interface GraphLiteDatabase {
     fun deleteNode(name: String, withConnections: Boolean = true): Boolean
     fun deleteNode(id: NodeId, withConnections: Boolean = true): Boolean
     fun findNodeSchema(id: NodeId): Schema?
-    fun <S : Schema> getOrCreateNode(schema: S, name: String, fieldMap: () -> FieldMap<S>): Node<S>
+    fun <S : Schema> getOrCreateNode(name: String, fieldMap: FieldMap<S>): Node<S>
     fun <S : Schema, T> updateField(node: Node<S>, field: Field<S, T>, value: T): Node<S>
+    fun <S : Schema, T> updateField(node: Node<S>, field: Field<S, T>, value: (T) -> T): Node<S>
     fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S>
 
     fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>>

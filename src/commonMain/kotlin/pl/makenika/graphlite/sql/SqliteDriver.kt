@@ -19,21 +19,21 @@ package pl.makenika.graphlite.sql
 import pl.makenika.graphlite.use
 
 interface SqliteDriver {
-    fun getDbVersion(): Int? {
+    fun getDbVersion(): Long? {
         if (!isInitialized()) {
             return null
         }
 
         return query("SELECT $VERSION_COL from $VERSION_TABLE").use { cursor ->
             if (cursor.moveToNext()) {
-                cursor.getInt(VERSION_COL)
+                cursor.getLong(VERSION_COL)
             } else {
                 null
             }
         }
     }
 
-    fun initialize(version: Int) {
+    fun initialize(version: Long) {
         //language=SQLITE-SQL
         execute("create table $VERSION_TABLE (version integer)")
         //language=SQLITE-SQL
@@ -46,7 +46,7 @@ interface SqliteDriver {
         }
     }
 
-    fun updateVersion(version: Int) {
+    fun updateVersion(version: Long) {
         //language=SQLITE-SQL
         execute("update $VERSION_TABLE set $VERSION_COL = $version")
     }

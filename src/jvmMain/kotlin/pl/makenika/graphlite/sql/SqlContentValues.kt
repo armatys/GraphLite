@@ -31,7 +31,7 @@ sealed class SqlValue {
         }
     }
 
-    data class SqlInt(val value: Int) : SqlValue()
+    data class SqlLong(val value: Long) : SqlValue()
     object SqlNull : SqlValue()
     data class SqlReal(val value: Double) : SqlValue()
     data class SqlString(val value: String) : SqlValue()
@@ -41,7 +41,7 @@ actual class SqlContentValues actual constructor() {
     private val keys = mutableSetOf<String>()
     private val byteArrays = mutableMapOf<String, ByteArray>()
     private val doubles = mutableMapOf<String, Double>()
-    private val ints = mutableMapOf<String, Int>()
+    private val longs = mutableMapOf<String, Long>()
     private val strings = mutableMapOf<String, String>()
 
     actual fun put(key: String, value: ByteArray?) {
@@ -58,9 +58,9 @@ actual class SqlContentValues actual constructor() {
         keys.add(key)
     }
 
-    actual fun put(key: String, value: Int?) {
+    actual fun put(key: String, value: Long?) {
         if (value != null) {
-            ints[key] = value
+            longs[key] = value
         }
         keys.add(key)
     }
@@ -79,7 +79,7 @@ actual class SqlContentValues actual constructor() {
     fun get(key: String): SqlValue {
         byteArrays[key]?.let { return SqlValue.SqlBlob(it) }
         doubles[key]?.let { return SqlValue.SqlReal(it) }
-        ints[key]?.let { return SqlValue.SqlInt(it) }
+        longs[key]?.let { return SqlValue.SqlLong(it) }
         strings[key]?.let { return SqlValue.SqlString(it) }
         return SqlValue.SqlNull
     }

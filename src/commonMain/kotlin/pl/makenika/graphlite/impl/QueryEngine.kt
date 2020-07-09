@@ -18,10 +18,7 @@ package pl.makenika.graphlite.impl
 
 import pl.makenika.graphlite.*
 import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
-import pl.makenika.graphlite.sql.SqliteDriver
-import pl.makenika.graphlite.sql.getFieldValueTableName
-import pl.makenika.graphlite.sql.getFtsTableName
-import pl.makenika.graphlite.sql.getRTreeTableName
+import pl.makenika.graphlite.sql.*
 
 internal class QueryEngine(private val driver: SqliteDriver) {
     fun <S : Schema> performQuery(match: ElementMatchImpl<S>): Pair<S, Sequence<Pair<String, String>>> {
@@ -309,7 +306,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val valueTableName = getFieldValueTableName(fieldId)
         val value = where.value
 
-        return if (value is GeoCoordinates?) {
+        return if (value is GeoBounds?) {
             if (value == null) {
                 Pair(
                     "Element.id IN (SELECT elementId FROM $valueTableName WHERE minLat IS NULL)",
