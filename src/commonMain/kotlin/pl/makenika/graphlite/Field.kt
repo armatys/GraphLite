@@ -62,7 +62,7 @@ sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: B
     companion object {
         fun fromCode(code: String): FieldType {
             val optional = code.endsWith('?')
-            val baseCode = code.replace("?", "")
+            val baseCode = code.removeSuffix("?")
             val fieldCode = BaseFieldCode.values().find { it.value == baseCode }
                 ?: error("Unknown field value code: $baseCode")
             return when (fieldCode) {
