@@ -58,13 +58,13 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
             .register(PersonV2)
             .migration(Likes, LikesV2) { db ->
                 db.query(EdgeMatch(Likes)).forEach { edge ->
-                    db.updateFields(edge, LikesV2 { it[level] = 100L })
+                    db.updateEdgeFields(edge, LikesV2 { it[level] = 100L })
                 }
             }
             .migration(PersonV1, PersonV2) { db ->
                 db.query(NodeMatch(PersonV1)).forEach { node ->
                     val (fName, lName) = node { name }.split(" ")
-                    db.updateFields(node, PersonV2 { it[firstName] = fName; it[lastName] = lName })
+                    db.updateNodeFields(node, PersonV2 { it[firstName] = fName; it[lastName] = lName })
                 }
             }
             .open()

@@ -68,12 +68,15 @@ interface GraphLiteDatabase {
     fun <S : Schema> createOrReplaceEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
     fun <S : Schema> createOrReplaceEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>
     fun deleteEdge(handle: EdgeHandle, withConnections: Boolean = true): Boolean
+    fun deleteEdge(handleValue: String, withConnections: Boolean = true): Boolean
     fun findEdgeSchema(handle: EdgeHandle): Schema?
+    fun findEdgeSchema(handleValue: String): Schema?
     fun <S : Schema> getOrCreateEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
     fun <S : Schema> getOrCreateEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>
-    fun <S : Schema, T> updateField(edge: Edge<S>, field: Field<S, T>, value: T): Edge<S>
-    fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S>
-    fun <S : Schema> updateFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema, T> updateEdgeField(edge: Edge<S>, field: Field<S, T>, value: T): Edge<S>
+    fun <S : Schema> updateEdgeFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema> updateEdgeFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema> updateEdgeFields(handleValue: String, fieldMap: FieldMap<S>): Edge<S>
 
     fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S>
     fun <S : Schema> createNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>?
@@ -81,12 +84,15 @@ interface GraphLiteDatabase {
     fun <S : Schema> createOrReplaceNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
     fun <S : Schema> createOrReplaceNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>
     fun deleteNode(handle: NodeHandle, withConnections: Boolean = true): Boolean
+    fun deleteNode(handleValue: String, withConnections: Boolean = true): Boolean
     fun findNodeSchema(handle: NodeHandle): Schema?
+    fun findNodeSchema(handleValue: String): Schema?
     fun <S : Schema> getOrCreateNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
     fun <S : Schema> getOrCreateNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>
-    fun <S : Schema, T> updateField(node: Node<S>, field: Field<S, T>, value: T): Node<S>
-    fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S>
-    fun <S : Schema> updateFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema, T> updateEdgeField(node: Node<S>, field: Field<S, T>, value: T): Node<S>
+    fun <S : Schema> updateNodeFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema> updateNodeFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema> updateNodeFields(handleValue: String, fieldMap: FieldMap<S>): Node<S>
 
     fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>>
     fun <S : Schema> query(match: NodeMatch<S>): Sequence<Node<S>>

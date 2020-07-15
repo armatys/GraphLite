@@ -227,7 +227,7 @@ abstract class BaseGraphLiteDatabaseTest {
     @Test
     fun updateFieldValue() {
         val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
-        val updated = tested.updateField(node, PersonV1.name, "John F. Doe")
+        val updated = tested.updateEdgeField(node, PersonV1.name, "John F. Doe")
         assertEquals("John F. Doe", updated[PersonV1.name])
     }
 
@@ -235,14 +235,14 @@ abstract class BaseGraphLiteDatabaseTest {
     fun updateNonExistentNode() {
         val node = Node(NodeHandle("test"), PersonV1 { it[name] = "John Doe" })
         assertThrows<IllegalStateException> {
-            tested.updateField(node, PersonV1.name, "test value")
+            tested.updateEdgeField(node, PersonV1.name, "test value")
         }
     }
 
     @Test
     fun updateFieldValues() {
         val node = tested.createNode(Tree { it[name] = "Oak"; it[secret] = byteArrayOf(0x7, 0x9) })
-        val updated = tested.updateFields(node, node.edit { it[age] = 102; it[secret] = null })
+        val updated = tested.updateNodeFields(node, node.edit { it[age] = 102; it[secret] = null })
         assertEquals("Oak", updated[Tree.name])
         assertEquals(102, updated[Tree.age])
         assertNull(updated[Tree.diameter])
@@ -254,7 +254,7 @@ abstract class BaseGraphLiteDatabaseTest {
     fun updateFieldValuesByHandle() {
         val node = tested.createNode(Tree { it[name] = "Oak"; it[secret] = byteArrayOf(0x7, 0x9) })
         val updated =
-            tested.updateFields(node.handle, node.edit { it[age] = 102; it[secret] = null })
+            tested.updateNodeFields(node.handle, node.edit { it[age] = 102; it[secret] = null })
         assertEquals("Oak", updated[Tree.name])
         assertEquals(102, updated[Tree.age])
         assertNull(updated[Tree.diameter])
@@ -265,7 +265,7 @@ abstract class BaseGraphLiteDatabaseTest {
     @Test
     fun changeSchema() {
         val a = tested.createEdge(Likes())
-        val b = tested.updateFields(a, Loves())
+        val b = tested.updateEdgeFields(a, Loves())
         val c = tested.query(EdgeMatch(Loves, Where.handle(b.handle))).first()
         assertEquals(a.handle, b.handle)
         assertEquals(b, c)

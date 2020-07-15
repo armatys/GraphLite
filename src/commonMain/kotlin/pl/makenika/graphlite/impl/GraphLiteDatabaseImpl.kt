@@ -218,8 +218,16 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return deleteElementByHandle(handle, withConnections)
     }
 
+    override fun deleteEdge(handleValue: String, withConnections: Boolean): Boolean {
+        return deleteEdge(EdgeHandle(handleValue), withConnections)
+    }
+
     override fun findEdgeSchema(handle: EdgeHandle): Schema? {
         return findElementSchema(handle)
+    }
+
+    override fun findEdgeSchema(handleValue: String): Schema? {
+        return findEdgeSchema(EdgeHandle(handleValue))
     }
 
     override fun <S : Schema> getOrCreateEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
@@ -236,7 +244,11 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return getOrCreateEdge(EdgeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema, T> updateField(edge: Edge<S>, field: Field<S, T>, value: T): Edge<S> {
+    override fun <S : Schema, T> updateEdgeField(
+        edge: Edge<S>,
+        field: Field<S, T>,
+        value: T
+    ): Edge<S> {
         return driver.transaction {
             val elementId = getElementId(driver, edge.handle)!!
             updateFieldValue(elementId, edge.fieldMap.schema(), field, value)
@@ -244,7 +256,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S> {
+    override fun <S : Schema> updateEdgeFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
             updateFieldValues(
                 edge.handle,
@@ -255,7 +267,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
+    override fun <S : Schema> updateEdgeFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
             val schema = findElementSchema(handle) ?: error("Could not find schema for $handle")
             updateFieldValues(
@@ -265,6 +277,13 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             )
             Edge(handle, fieldMap)
         }
+    }
+
+    override fun <S : Schema> updateEdgeFields(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
+        return updateEdgeFields(EdgeHandle(handleValue), fieldMap)
     }
 
     override fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S> {
@@ -324,8 +343,16 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return deleteElementByHandle(handle, withConnections)
     }
 
+    override fun deleteNode(handleValue: String, withConnections: Boolean): Boolean {
+        return deleteNode(NodeHandle(handleValue), withConnections)
+    }
+
     override fun findNodeSchema(handle: NodeHandle): Schema? {
         return findElementSchema(handle)
+    }
+
+    override fun findNodeSchema(handleValue: String): Schema? {
+        return findNodeSchema(NodeHandle(handleValue))
     }
 
     override fun <S : Schema> getOrCreateNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
@@ -342,7 +369,11 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return getOrCreateNode(NodeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema, T> updateField(node: Node<S>, field: Field<S, T>, value: T): Node<S> {
+    override fun <S : Schema, T> updateEdgeField(
+        node: Node<S>,
+        field: Field<S, T>,
+        value: T
+    ): Node<S> {
         return driver.transaction {
             val elementId =
                 getElementId(driver, node.handle) ?: error("Node ${node.handle} not found.")
@@ -351,7 +382,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S> {
+    override fun <S : Schema> updateNodeFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S> {
         return driver.transaction {
             updateFieldValues(
                 node.handle,
@@ -362,7 +393,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
+    override fun <S : Schema> updateNodeFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
         return driver.transaction {
             val schema = findElementSchema(handle) ?: error("Could not find schema for $handle")
             updateFieldValues(
@@ -372,6 +403,13 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             )
             Node(handle, fieldMap)
         }
+    }
+
+    override fun <S : Schema> updateNodeFields(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
+        return updateNodeFields(NodeHandle(handleValue), fieldMap)
     }
 
     override fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>> {
