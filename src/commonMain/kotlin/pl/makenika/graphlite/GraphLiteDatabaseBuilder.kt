@@ -148,7 +148,16 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
                 is FieldType.Geo -> createTableFieldValueGeo(fieldId, isNullable)
                 is FieldType.LongInt -> createTableFieldValueLongInt(fieldId, isNullable)
                 is FieldType.DoubleFloat -> createTableFieldValueDoubleFloat(fieldId, isNullable)
-                is FieldType.Text -> createTableFieldValueText(fieldId, isNullable)
+                is FieldType.Text -> createTableFieldValueText(
+                    fieldId,
+                    isValueOptional = isNullable,
+                    fts = false
+                )
+                is FieldType.TextFts -> createTableFieldValueText(
+                    fieldId,
+                    isValueOptional = isNullable,
+                    fts = true
+                )
             }
             createTableStatements.forEach {
                 driver.execute(it)

@@ -25,7 +25,8 @@ private enum class BaseFieldCode(val value: String) {
     Dbl("dbl"),
     Geo("geo"),
     Lng("lng"),
-    Txt("txt")
+    Txt("txt"),
+    TxtFts("fts")
 }
 
 sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: Boolean) {
@@ -34,6 +35,7 @@ sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: B
     class Geo(optional: Boolean) : FieldType(BaseFieldCode.Geo, optional)
     class LongInt(optional: Boolean) : FieldType(BaseFieldCode.Lng, optional)
     class Text(optional: Boolean) : FieldType(BaseFieldCode.Txt, optional)
+    class TextFts(optional: Boolean) : FieldType(BaseFieldCode.TxtFts, optional)
 
     val code: String
         get() = baseFieldCode.value + if (optional) "?" else ""
@@ -71,6 +73,7 @@ sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: B
                 BaseFieldCode.Geo -> Geo(optional)
                 BaseFieldCode.Lng -> LongInt(optional)
                 BaseFieldCode.Txt -> Text(optional)
+                BaseFieldCode.TxtFts -> TextFts(optional)
             }
         }
     }
@@ -110,6 +113,12 @@ interface Field<in S : Schema, T> {
 
         internal fun <S : Schema> textOptional(name: String): IndexableScalarField<S, String?> =
             makeIndexedScalar(name, FieldType.Text(true))
+
+        internal fun <S : Schema> textFts(name: String): IndexableScalarField<S, String> =
+            makeIndexedScalar(name, FieldType.TextFts(false))
+
+        internal fun <S : Schema> textFtsOptional(name: String): IndexableScalarField<S, String?> =
+            makeIndexedScalar(name, FieldType.TextFts(true))
 
         private fun <S : Schema, T> make(
             name: String,

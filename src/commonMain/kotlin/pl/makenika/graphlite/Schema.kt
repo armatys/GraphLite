@@ -56,8 +56,15 @@ abstract class Schema(val schemaHandle: SchemaHandle, val schemaVersion: Long) {
         return addField(Field.long(name))
     }
 
-    protected fun <S : Schema> S.textField(name: String): IndexableScalarField<S, String> {
-        return addField(Field.text(name))
+    protected fun <S : Schema> S.textField(
+        name: String,
+        fts: Boolean = true
+    ): IndexableScalarField<S, String> {
+        return if (fts) {
+            addField(Field.textFts(name))
+        } else {
+            addField(Field.text(name))
+        }
     }
 
     override fun equals(other: Any?): Boolean {

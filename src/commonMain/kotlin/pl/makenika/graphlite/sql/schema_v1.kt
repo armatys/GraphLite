@@ -123,11 +123,42 @@ fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean):
     )
 }
 
-fun createTableFieldValueText(fieldId: String, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueText(
+    fieldId: String,
+    isValueOptional: Boolean,
+    fts: Boolean
+): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
     val ftsTableName = getFtsTableName(fieldId)
+
+    val ftsStatements by lazy {
+        //language=SQLITE-SQL
+        arrayOf(
+            """create virtual table if not exists $ftsTableName using fts5 (
+          value,
+          content=$tableName
+        );""",
+
+            """CREATE TRIGGER ${tableName}_bu BEFORE UPDATE ON $tableName BEGIN
+            DELETE FROM $ftsTableName WHERE rowid=old.rowid;
+        END;""",
+
+            """CREATE TRIGGER ${tableName}_bd BEFORE DELETE ON $tableName BEGIN
+            DELETE FROM $ftsTableName WHERE rowid=old.rowid;
+        END;""",
+
+            """CREATE TRIGGER ${tableName}_au AFTER UPDATE ON $tableName BEGIN
+            INSERT INTO $ftsTableName(rowid, value) VALUES(new.rowid, new.value);
+        END;""",
+
+            """CREATE TRIGGER ${tableName}_ai AFTER INSERT ON $tableName BEGIN
+            INSERT INTO $ftsTableName(rowid, value) VALUES(new.rowid, new.value);
+        END;"""
+        )
+    }
+
     //language=SQLITE-SQL
     return arrayOf(
         """
@@ -138,29 +169,8 @@ fun createTableFieldValueText(fieldId: String, isValueOptional: Boolean): Array<
           foreign key (elementId) references Element (id) on delete cascade
         );""",
 
-        "create index if not exists fieldValueTextIndex_$safeFieldId on $tableName (value)",
-
-        """create virtual table if not exists $ftsTableName using fts5 (
-          value,
-          content=$tableName
-        );""",
-
-        """CREATE TRIGGER ${tableName}_bu BEFORE UPDATE ON $tableName BEGIN
-            DELETE FROM $ftsTableName WHERE rowid=old.rowid;
-        END;""",
-
-        """CREATE TRIGGER ${tableName}_bd BEFORE DELETE ON $tableName BEGIN
-            DELETE FROM $ftsTableName WHERE rowid=old.rowid;
-        END;""",
-
-        """CREATE TRIGGER ${tableName}_au AFTER UPDATE ON $tableName BEGIN
-            INSERT INTO $ftsTableName(rowid, value) VALUES(new.rowid, new.value);
-        END;""",
-
-        """CREATE TRIGGER ${tableName}_ai AFTER INSERT ON $tableName BEGIN
-            INSERT INTO $ftsTableName(rowid, value) VALUES(new.rowid, new.value);
-        END;"""
-    )
+        "create index if not exists fieldValueTextIndex_$safeFieldId on $tableName (value)"
+    ) + if (fts) ftsStatements else emptyArray()
 }
 
 fun createTableFieldValueGeo(fieldId: String, isValueOptional: Boolean): Array<String> {

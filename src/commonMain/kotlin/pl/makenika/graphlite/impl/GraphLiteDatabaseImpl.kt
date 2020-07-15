@@ -467,7 +467,8 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             is FieldType.LongInt -> into.put("value", value as Long?)
             is FieldType.DoubleFloat -> into.put("value", value as Double?)
             is FieldType.Text -> into.put("value", value as String?)
-        }
+            is FieldType.TextFts -> into.put("value", value as String?)
+        }.hashCode()
     }
 
     private fun findElementSchema(handle: ElementHandle): Schema? {
@@ -590,6 +591,13 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
                 }
             }
             is FieldType.Text -> {
+                if (isNullable) {
+                    cursor.findString("value")
+                } else {
+                    cursor.getString("value")
+                }
+            }
+            is FieldType.TextFts -> {
                 if (isNullable) {
                     cursor.findString("value")
                 } else {

@@ -33,7 +33,11 @@ class OptionalFieldBuilder<S : Schema> internal constructor(private val schema: 
         return schema.addField(Field.longOptional(name))
     }
 
-    fun textField(name: String): IndexableScalarField<S, String?> {
-        return schema.addField(Field.textOptional(name))
+    fun textField(name: String, fts: Boolean = true): IndexableScalarField<S, String?> {
+        return if (fts) {
+            schema.addField(Field.textFtsOptional(name))
+        } else {
+            schema.addField(Field.textOptional(name))
+        }
     }
 }
