@@ -24,23 +24,23 @@ internal class QueryEngine(private val driver: SqliteDriver) {
     fun <S : Schema> performQuery(match: ElementMatchImpl<S>): Pair<S, Sequence<Pair<String, String>>> {
         val querySpec = performQueryMatch(match)
         val query = buildSelect(
-            "SELECT Element.id, Element.name FROM Element",
+            "SELECT Element.id, Element.handle FROM Element",
             join = querySpec.join,
             where = querySpec.where,
             orderBy = querySpec.orderBy
         )
 
-        val idToNameSequence = sequence {
+        val idToHandleValueSequence = sequence {
             driver.query(query, querySpec.whereBindings.toTypedArray())
                 .use { cursor ->
                     while (cursor.moveToNext()) {
                         val id = cursor.getString("id")
-                        val name = cursor.getString("name")
-                        yield(id to name)
+                        val handle = cursor.getString("handle")
+                        yield(id to handle)
                     }
                 }
         }
-        return querySpec.schema to idToNameSequence
+        return querySpec.schema to idToHandleValueSequence
     }
 
     private fun <S : Schema> performQueryMatch(match: ElementMatch<S>): SqlQuerySpec<S> {
@@ -83,8 +83,8 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val bindings = mutableListOf<String>()
         val whereClauses = StringBuilder()
 
-        whereClauses.append("schemaId = (SELECT id FROM Schema WHERE name = ? AND version = ? LIMIT 1) AND type = ?")
-        bindings.add(schema.schemaName)
+        whereClauses.append("schemaId = (SELECT id FROM Schema WHERE handle = ? AND version = ? LIMIT 1) AND type = ?")
+        bindings.add(schema.schemaHandle.value)
         bindings.add(schema.schemaVersion.toString())
         bindings.add(elementType.code)
 
@@ -138,8 +138,13 @@ internal class QueryEngine(private val driver: SqliteDriver) {
             null -> ""
         }
 
-        val selectElementName = buildSelect("SELECT name FROM Element", nodeSpec.join, nodeSpec.where, nodeSpec.orderBy)
-        whereClauses.append("name IN (SELECT edgeName FROM Connection WHERE nodeName IN ($selectElementName) $outgoingClause) ")
+        val selectElementHandle = buildSelect(
+            "SELECT handle FROM Element",
+            nodeSpec.join,
+            nodeSpec.where,
+            nodeSpec.orderBy
+        )
+        whereClauses.append("handle IN (SELECT edgeHandle FROM Connection WHERE nodeHandle IN ($selectElementHandle) $outgoingClause) ")
         bindings.addAll(nodeSpec.whereBindings)
 
         whereClauses.append("AND ${edgeSpec.where}")
@@ -183,8 +188,13 @@ internal class QueryEngine(private val driver: SqliteDriver) {
             null -> ""
         }
 
-        val selectElementName = buildSelect("SELECT name FROM Element", edgeSpec.join, edgeSpec.where, edgeSpec.orderBy)
-        whereClauses.append("name IN (SELECT nodeName FROM Connection WHERE edgeName IN ($selectElementName) $outgoingClause) ")
+        val selectElementHandle = buildSelect(
+            "SELECT handle FROM Element",
+            edgeSpec.join,
+            edgeSpec.where,
+            edgeSpec.orderBy
+        )
+        whereClauses.append("handle IN (SELECT nodeHandle FROM Connection WHERE edgeHandle IN ($selectElementHandle) $outgoingClause) ")
         bindings.addAll(edgeSpec.whereBindings)
 
         whereClauses.append("AND ${nodeSpec.where}")
@@ -228,8 +238,13 @@ internal class QueryEngine(private val driver: SqliteDriver) {
             null -> ""
         }
 
-        val selectElementName = buildSelect("SELECT name FROM Element", fromSpec.join, fromSpec.where, fromSpec.orderBy)
-        whereClauses.append("name IN (SELECT nodeName FROM Connection, (SELECT id, edgeName FROM Connection WHERE nodeName IN ($selectElementName)) AS C WHERE Connection.edgeName = C.edgeName AND Connection.id != C.id $outgoingClause)")
+        val selectElementHandle = buildSelect(
+            "SELECT handle FROM Element",
+            fromSpec.join,
+            fromSpec.where,
+            fromSpec.orderBy
+        )
+        whereClauses.append("handle IN (SELECT nodeHandle FROM Connection, (SELECT id, edgeHandle FROM Connection WHERE nodeHandle IN ($selectElementHandle)) AS C WHERE Connection.edgeHandle = C.edgeHandle AND Connection.id != C.id $outgoingClause)")
         bindings.addAll(fromSpec.whereBindings)
 
         whereClauses.append(" AND ${toSpec.where}")
@@ -244,7 +259,12 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun buildSelect(selectIntro: String, join: String?, where: String, orderBy: String?): String {
+    private fun buildSelect(
+        selectIntro: String,
+        join: String?,
+        where: String,
+        orderBy: String?
+    ): String {
         val builder = mutableListOf<String>()
         builder.add(selectIntro)
 
@@ -267,23 +287,26 @@ internal class QueryEngine(private val driver: SqliteDriver) {
     //================== WHERE filtering
 
     private fun <S : Schema> buildWhere(schema: S, where: Where<S>): Pair<String, List<String>> {
-        return when (val whereImpl = where as? WhereImpl ?: error("Unknown Where subclass: $where")) {
+        return when (val whereImpl =
+            where as? WhereImpl ?: error("Unknown Where subclass: $where")) {
             is WhereImpl.And<S> -> whereAnd(schema, whereImpl)
             is WhereImpl.Between<S, *, *> -> whereBetween(schema, whereImpl)
             is WhereImpl.Equal<S, *> -> whereEqualValue(schema, whereImpl)
             is WhereImpl.FullText<S> -> whereFullText(schema, whereImpl)
             is WhereImpl.GreaterThan<S, *, *> -> whereGreaterThan(schema, whereImpl)
-            is WhereImpl.Id<S> -> whereId(whereImpl)
             is WhereImpl.Inside<S, *> -> whereInside(schema, whereImpl)
             is WhereImpl.LessThan<S, *, *> -> whereLessThan(schema, whereImpl)
-            is WhereImpl.Name<S> -> whereName(whereImpl)
+            is WhereImpl.Handle<S> -> whereHandle(whereImpl)
             is WhereImpl.Or<S> -> whereOr(schema, whereImpl)
             is WhereImpl.Overlaps<S, *> -> whereOverlaps(schema, whereImpl)
             is WhereImpl.Within<S, *> -> whereWithin(schema, whereImpl)
         }
     }
 
-    private fun <S : Schema> whereAnd(schema: S, where: WhereImpl.And<S>): Pair<String, List<String>> {
+    private fun <S : Schema> whereAnd(
+        schema: S,
+        where: WhereImpl.And<S>
+    ): Pair<String, List<String>> {
         val (aConditions, aBindings) = buildWhere(schema, where.a)
         val (bConditions, bBindings) = buildWhere(schema, where.b)
         return Pair(
@@ -292,7 +315,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereBetween(schema: S, where: WhereImpl.Between<S, *, *>): Pair<String, List<String>> {
+    private fun <S : Schema> whereBetween(
+        schema: S,
+        where: WhereImpl.Between<S, *, *>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         return Pair(
@@ -301,7 +327,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereEqualValue(schema: S, where: WhereImpl.Equal<S, *>): Pair<String, List<String>> {
+    private fun <S : Schema> whereEqualValue(
+        schema: S,
+        where: WhereImpl.Equal<S, *>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         val value = where.value
@@ -338,7 +367,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         }
     }
 
-    private fun <S : Schema> whereFullText(schema: S, where: WhereImpl.FullText<S>): Pair<String, List<String>> {
+    private fun <S : Schema> whereFullText(
+        schema: S,
+        where: WhereImpl.FullText<S>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         val ftsTableName = getFtsTableName(fieldId)
@@ -360,11 +392,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereId(where: WhereImpl.Id<S>): Pair<String, List<String>> {
-        return Pair("id = ?", listOf(where.id.toString()))
-    }
-
-    private fun <S : Schema> whereInside(schema: S, where: WhereImpl.Inside<S, *>): Pair<String, List<String>> {
+    private fun <S : Schema> whereInside(
+        schema: S,
+        where: WhereImpl.Inside<S, *>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         val geoTableName = getRTreeTableName(fieldId)
@@ -379,7 +410,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereLessThan(schema: S, where: WhereImpl.LessThan<S, *, *>): Pair<String, List<String>> {
+    private fun <S : Schema> whereLessThan(
+        schema: S,
+        where: WhereImpl.LessThan<S, *, *>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         return Pair(
@@ -388,11 +422,14 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereName(where: WhereImpl.Name<S>): Pair<String, List<String>> {
-        return Pair("name = ?", listOf(where.name))
+    private fun <S : Schema> whereHandle(where: WhereImpl.Handle<S>): Pair<String, List<String>> {
+        return Pair("handle = ?", listOf(where.handle.value))
     }
 
-    private fun <S : Schema> whereOr(schema: S, where: WhereImpl.Or<S>): Pair<String, List<String>> {
+    private fun <S : Schema> whereOr(
+        schema: S,
+        where: WhereImpl.Or<S>
+    ): Pair<String, List<String>> {
         val (aConditions, aBindings) = buildWhere(schema, where.a)
         val (bConditions, bBindings) = buildWhere(schema, where.b)
         return Pair(
@@ -401,7 +438,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereOverlaps(schema: S, where: WhereImpl.Overlaps<S, *>): Pair<String, List<String>> {
+    private fun <S : Schema> whereOverlaps(
+        schema: S,
+        where: WhereImpl.Overlaps<S, *>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         val geoTableName = getRTreeTableName(fieldId)
@@ -416,7 +456,10 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         )
     }
 
-    private fun <S : Schema> whereWithin(schema: S, where: WhereImpl.Within<S, *>): Pair<String, List<String>> {
+    private fun <S : Schema> whereWithin(
+        schema: S,
+        where: WhereImpl.Within<S, *>
+    ): Pair<String, List<String>> {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         val placeholders = where.values.joinToString(", ") { "?" }

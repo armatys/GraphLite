@@ -37,41 +37,31 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byIdQuery() {
-        tested.createNode(PersonV1 { it[name] = "John Doe" })
-        val p1 = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
-        val m = NodeMatch(PersonV1, Where.id(p1.id))
-        val people = tested.query(m).toList()
-        assertEquals(1, people.size)
-        assertEquals(p1, people[0])
-    }
-
-    @Test
     fun byNameQuery() {
         tested.createNode(PersonV1 { it[name] = "John Doe" })
         val p1 = tested.createNode("p2", PersonV1 { it[name] = "Jane Smith" })
-        val m = NodeMatch(PersonV1, Where.name("p2"))
+        val m = NodeMatch(PersonV1, Where.handle("p2"))
         val people = tested.query(m).toList()
         assertEquals(1, people.size)
         assertEquals(p1, people[0])
     }
 
     @Test
-    fun byIdAndNameQuery() {
-        val p1 = tested.createNode("p1", PersonV1 { it[name] = "Jane Smith" })!!
-        val m = NodeMatch(PersonV1, Where.and(Where.id(p1.id), Where.name("p1")))
-        val people = tested.query(m).toList()
-        assertEquals(1, people.size)
-        assertEquals(p1, people[0])
+    fun byEqAndHandleQuery() {
+        val t1 = tested.createNode("t1", Tree { it[name] = "Oak"; it[age] = 101 })!!
+        val m = NodeMatch(Tree, Where.and(Where.eq(Tree.age, 101), Where.handle("t1")))
+        val list = tested.query(m).toList()
+        assertEquals(1, list.size)
+        assertEquals(t1, list[0])
     }
 
     @Test
     fun byIdOrNameQuery() {
-        val p1 = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
+        val p1 = tested.createNode("p1", PersonV1 { it[name] = "Jane Smith" })
         val p2 = tested.createNode("p2", PersonV1 { it[name] = "John Doe" })
         assertNotNull(p2)
 
-        val m = NodeMatch(PersonV1, Where.or(Where.id(p1.id), Where.name("p2")))
+        val m = NodeMatch(PersonV1, Where.or(Where.handle("p1"), Where.handle("p2")))
         val people = tested.query(m).toList()
 
         assertEquals(2, people.size)
@@ -177,11 +167,11 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, a.name, directed = true)
-        tested.connect(likeEdge2.name, b.name, c.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, a.handle, directed = true)
+        tested.connect(likeEdge2.handle, b.handle, c.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(b.id)).outgoing(EdgeMatch(Likes))
+        val match = NodeMatch(PersonV1, Where.handle(b.handle)).outgoing(EdgeMatch(Likes))
         val edges = tested.query(match).toSet()
         assertEquals(setOf(likeEdge2), edges)
     }
@@ -194,11 +184,11 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, a.name, directed = true)
-        tested.connect(likeEdge2.name, b.name, c.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, a.handle, directed = true)
+        tested.connect(likeEdge2.handle, b.handle, c.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(b.id)).incoming(EdgeMatch(Likes))
+        val match = NodeMatch(PersonV1, Where.handle(b.handle)).incoming(EdgeMatch(Likes))
         val edges = tested.query(match).toSet()
         assertEquals(setOf(likeEdge), edges)
     }
@@ -211,11 +201,11 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, a.name, directed = true)
-        tested.connect(likeEdge2.name, b.name, c.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, a.handle, directed = true)
+        tested.connect(likeEdge2.handle, b.handle, c.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(b.id)).via(EdgeMatch(Likes))
+        val match = NodeMatch(PersonV1, Where.handle(b.handle)).via(EdgeMatch(Likes))
         val edges = tested.query(match).toSet()
         assertEquals(setOf(likeEdge, likeEdge2), edges)
     }
@@ -227,8 +217,8 @@ abstract class BaseQueryEngineTest {
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
         val likeEdge = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, c.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, c.handle, directed = true)
 
         val match = EdgeMatch(Likes).endpoints(NodeMatch(PersonV1))
         val people = tested.query(match).toSet()
@@ -243,9 +233,9 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(likeEdge2.name, a.name, c.name, directed = true)
-        tested.connect(loveEdge.name, b.name, c.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(likeEdge2.handle, a.handle, c.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, c.handle, directed = true)
 
         val match = EdgeMatch(Likes).sources(NodeMatch(PersonV1))
         val people = tested.query(match).toSet()
@@ -260,9 +250,9 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(likeEdge2.name, c.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, c.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(likeEdge2.handle, c.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, c.handle, directed = true)
 
         val match = EdgeMatch(Likes).targets(NodeMatch(PersonV1))
         val people = tested.query(match).toSet()
@@ -277,11 +267,11 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(likeEdge2.name, b.name, c.name, directed = true)
-        tested.connect(loveEdge.name, c.name, b.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(likeEdge2.handle, b.handle, c.handle, directed = true)
+        tested.connect(loveEdge.handle, c.handle, b.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(b.id)).adjacent(NodeMatch(PersonV1))
+        val match = NodeMatch(PersonV1, Where.handle(b.handle)).adjacent(NodeMatch(PersonV1))
         val people = tested.query(match).toSet()
         assertEquals(setOf(a, c), people)
     }
@@ -294,11 +284,11 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, c.name, directed = true)
-        tested.connect(likeEdge2.name, c.name, a.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, c.handle, directed = true)
+        tested.connect(likeEdge2.handle, c.handle, a.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(b.id)).sources(NodeMatch(PersonV1))
+        val match = NodeMatch(PersonV1, Where.handle(b.handle)).sources(NodeMatch(PersonV1))
         val people = tested.query(match).toSet()
         assertEquals(setOf(a), people)
     }
@@ -311,11 +301,11 @@ abstract class BaseQueryEngineTest {
         val likeEdge = tested.createEdge(Likes())
         val likeEdge2 = tested.createEdge(Likes())
         val loveEdge = tested.createEdge(Loves())
-        tested.connect(likeEdge.name, a.name, b.name, directed = true)
-        tested.connect(loveEdge.name, b.name, c.name, directed = true)
-        tested.connect(likeEdge2.name, c.name, a.name, directed = true)
+        tested.connect(likeEdge.handle, a.handle, b.handle, directed = true)
+        tested.connect(loveEdge.handle, b.handle, c.handle, directed = true)
+        tested.connect(likeEdge2.handle, c.handle, a.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(b.id)).targets(NodeMatch(PersonV1))
+        val match = NodeMatch(PersonV1, Where.handle(b.handle)).targets(NodeMatch(PersonV1))
         val people = tested.query(match).toSet()
         assertEquals(setOf(c), people)
     }
@@ -327,10 +317,10 @@ abstract class BaseQueryEngineTest {
         tested.createNode(PersonV1 { it[name] = "Charlie" })
         val abLove = tested.createEdge(Loves())
         val bcLove = tested.createEdge(Loves())
-        tested.connect(abLove.name, a.name, b.name, directed = true)
-        tested.connect(bcLove.name, b.name, a.name, directed = true)
+        tested.connect(abLove.handle, a.handle, b.handle, directed = true)
+        tested.connect(bcLove.handle, b.handle, a.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(a.id))
+        val match = NodeMatch(PersonV1, Where.handle(a.handle))
             .outgoing(EdgeMatch(Loves))
             .targets(NodeMatch(PersonV1))
             .outgoing(EdgeMatch(Loves))
@@ -346,10 +336,10 @@ abstract class BaseQueryEngineTest {
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
         val abLove = tested.createEdge(Loves())
         val bcLove = tested.createEdge(Loves())
-        tested.connect(abLove.name, a.name, b.name, directed = true)
-        tested.connect(bcLove.name, b.name, c.name, directed = true)
+        tested.connect(abLove.handle, a.handle, b.handle, directed = true)
+        tested.connect(bcLove.handle, b.handle, c.handle, directed = true)
 
-        val match = NodeMatch(PersonV1, Where.id(a.id))
+        val match = NodeMatch(PersonV1, Where.handle(a.handle))
             .outgoing(EdgeMatch(Loves))
             .targets(NodeMatch(PersonV1))
             .outgoing(EdgeMatch(Loves))

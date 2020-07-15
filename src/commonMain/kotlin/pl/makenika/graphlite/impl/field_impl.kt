@@ -19,16 +19,16 @@ package pl.makenika.graphlite.impl
 import pl.makenika.graphlite.*
 
 internal data class FieldImpl<S : Schema, T>(
-    override val name: String,
+    override val handle: FieldHandle,
     override val type: FieldType
 ) : Field<S, T>
 
 internal data class IndexableFieldImpl<S : Schema, T>(
-    override val name: String,
+    override val handle: FieldHandle,
     override val type: FieldType
 ) : IndexableField<S, T>
 
 internal data class IndexableScalarFieldImpl<S : Schema, T>(
-    override val name: String,
+    override val handle: FieldHandle,
     override val type: FieldType
 ) : IndexableScalarField<S, T>

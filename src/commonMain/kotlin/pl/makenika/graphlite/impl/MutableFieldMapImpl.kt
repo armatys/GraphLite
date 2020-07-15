@@ -55,7 +55,7 @@ internal data class MutableFieldMapImpl<S : Schema>(
     }
 
     override fun toMap(): Map<String, Any?> {
-        return fieldValueMap.mapKeys { it.key.name }
+        return fieldValueMap.mapKeys { it.key.handle.value }
     }
 
     override fun toMutableFieldMap(): MutableFieldMap<S> {

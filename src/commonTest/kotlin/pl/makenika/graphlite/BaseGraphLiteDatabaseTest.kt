@@ -31,15 +31,11 @@ abstract class BaseGraphLiteDatabaseTest {
     fun createAndFindNode() {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val node = tested.createNode(fieldMap)
-        val resultById = tested.query(NodeMatch(PersonV1, Where.id(node.id))).first()
-        val resultByName = tested.query(NodeMatch(PersonV1, Where.name(node.name))).first()
-        assertNotNull(resultById)
-        assertEquals(resultById, resultByName)
-        assertEquals(node.id, resultById.id)
-        assertEquals(node.name, resultById.name)
-        assertEquals(node.fieldMap, resultById.fieldMap)
-        assertEquals(node, resultById)
-        assertEquals("John Doe", resultById[PersonV1.name])
+        val resultByName = tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first()
+        assertEquals(node.handle, resultByName.handle)
+        assertEquals(node.fieldMap, resultByName.fieldMap)
+        assertEquals(node, resultByName)
+        assertEquals("John Doe", resultByName[PersonV1.name])
     }
 
     @Test
@@ -83,23 +79,19 @@ abstract class BaseGraphLiteDatabaseTest {
 
     @Test
     fun createOrReplaceEdge() {
-        val a = tested.createEdge("test", Likes {})!!
+        tested.createEdge("test", Likes {})!!
         val b = tested.createOrReplaceEdge("test", Likes {})
 
-        assertNotEquals(a.id, b.id)
-
-        val result = tested.query(EdgeMatch(Likes, Where.name("test"))).first()
+        val result = tested.query(EdgeMatch(Likes, Where.handle("test"))).first()
         assertEquals(b, result)
     }
 
     @Test
     fun createOrReplaceNode() {
-        val a = tested.createNode("test", Tree { it[name] = "a" })!!
+        tested.createNode("test", Tree { it[name] = "a" })!!
         val b = tested.createOrReplaceNode("test", Tree { it[name] = "b" })
 
-        assertNotEquals(a.id, b.id)
-
-        val result = tested.query(NodeMatch(Tree, Where.name("test"))).first()
+        val result = tested.query(NodeMatch(Tree, Where.handle("test"))).first()
         assertEquals(b, result)
     }
 
@@ -107,38 +99,38 @@ abstract class BaseGraphLiteDatabaseTest {
     fun createOrReplaceMaintainsConnections() {
         val a = tested.createEdge("edge", Likes {})!!
         val b = tested.createNode("node", Tree { it[name] = "a" })!!
-        tested.connect(a.name, b.name)
+        tested.connect(a.handle, b.handle)
 
         val c = tested.createOrReplaceEdge("edge", Likes {})
         val d = tested.createOrReplaceNode("node", Tree { it[name] = "b" })
-        val connection = tested.findConnection(c.name, d.name)
+        val connection = tested.findConnection(c.handle, d.handle)
         assertNotNull(connection)
-        assertEquals(c.name, connection.edgeName)
-        assertEquals(d.name, connection.nodeName)
+        assertEquals(c.handle, connection.edgeHandle)
+        assertEquals(d.handle, connection.nodeHandle)
     }
 
     @Test
     fun deleteById() {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val node = tested.createNode(fieldMap)
-        assertTrue(tested.deleteNode(node.id))
-        assertNull(tested.query(NodeMatch(PersonV1, Where.id(node.id))).firstOrNull())
+        assertTrue(tested.deleteNode(node.handle))
+        assertNull(tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).firstOrNull())
     }
 
     @Test
     fun deleteByName() {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val node = tested.createNode("test", fieldMap)!!
-        assertEquals("test", node.name)
-        assertTrue(tested.deleteNode(node.name))
-        assertNull(tested.query(NodeMatch(PersonV1, Where.id(node.id))).firstOrNull())
+        assertEquals("test", node.handle.value)
+        assertTrue(tested.deleteNode(node.handle))
+        assertNull(tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).firstOrNull())
     }
 
     @Test
     fun connectWithMissingEdge() {
         val node = tested.createNode(PersonV1 { it[name] = "test" })
         assertThrows<RollbackException> {
-            tested.connect(uuid4().toString(), node.name, null)
+            tested.connect(EdgeHandle(uuid4().toString()), node.handle, null)
         }
     }
 
@@ -146,7 +138,7 @@ abstract class BaseGraphLiteDatabaseTest {
     fun connectWithMissingNode() {
         val edge = tested.createEdge(Likes())
         assertThrows<RollbackException> {
-            tested.connect(edge.name, uuid4().toString(), null)
+            tested.connect(edge.handle, NodeHandle(uuid4().toString()), null)
         }
     }
 
@@ -154,9 +146,9 @@ abstract class BaseGraphLiteDatabaseTest {
     fun connectTwice() {
         val edge = tested.createEdge(Likes())
         val node = tested.createNode(Tree {})
-        tested.connect(edge.name, node.name, null)
+        tested.connect(edge.handle, node.handle, null)
         assertThrows<RollbackException> {
-            tested.connect(edge.name, node.name, null)
+            tested.connect(edge.handle, node.handle, null)
         }
     }
 
@@ -165,18 +157,18 @@ abstract class BaseGraphLiteDatabaseTest {
         val edge = tested.createEdge(Likes())
         val node = tested.createNode(Tree {})
 
-        tested.connectOrReplace(edge.name, node.name, null)
-        val connectionA = tested.findConnection(edge.name, node.name)
+        tested.connectOrReplace(edge.handle, node.handle, null)
+        val connectionA = tested.findConnection(edge.handle, node.handle)
         assertNotNull(connectionA)
-        assertEquals(connectionA.edgeName, edge.name)
-        assertEquals(connectionA.nodeName, node.name)
+        assertEquals(connectionA.edgeHandle, edge.handle)
+        assertEquals(connectionA.nodeHandle, node.handle)
         assertNull(connectionA.outgoing)
 
-        tested.connectOrReplace(edge.name, node.name, true)
-        val connectionB = tested.findConnection(edge.name, node.name)
+        tested.connectOrReplace(edge.handle, node.handle, true)
+        val connectionB = tested.findConnection(edge.handle, node.handle)
         assertNotNull(connectionB)
-        assertEquals(connectionB.edgeName, edge.name)
-        assertEquals(connectionB.nodeName, node.name)
+        assertEquals(connectionB.edgeHandle, edge.handle)
+        assertEquals(connectionB.nodeHandle, node.handle)
         assertEquals(connectionB.outgoing, true)
     }
 
@@ -185,8 +177,8 @@ abstract class BaseGraphLiteDatabaseTest {
         val edge = tested.createEdge(Likes())
         val node = tested.createNode(Tree {})
 
-        val connectionA = tested.getOrConnect(edge.name, node.name)
-        val connectionB = tested.getOrConnect(edge.name, node.name, true)
+        val connectionA = tested.getOrConnect(edge.handle, node.handle)
+        val connectionB = tested.getOrConnect(edge.handle, node.handle, true)
         assertEquals(connectionA, connectionB)
     }
 
@@ -195,19 +187,21 @@ abstract class BaseGraphLiteDatabaseTest {
         val a = tested.createNode(PersonV1 { it[name] = "a" })
         val b = tested.createNode(PersonV1 { it[name] = "b" })
         val edge = tested.createEdge(Likes())
-        tested.connect(edge.name, a.name, b.name, true)
+        tested.connect(edge.handle, a.handle, b.handle, true)
 
         val allEdges =
-            tested.query(NodeMatch(PersonV1, Where.id(a.id)).via(EdgeMatch(Likes))).toList()
+            tested.query(NodeMatch(PersonV1, Where.handle(a.handle)).via(EdgeMatch(Likes))).toList()
         assertEquals(1, allEdges.size)
         assertEquals(edge, allEdges[0])
 
         val incomingEdges =
-            tested.query(NodeMatch(PersonV1, Where.id(a.id)).incoming(EdgeMatch(Likes))).toList()
+            tested.query(NodeMatch(PersonV1, Where.handle(a.handle)).incoming(EdgeMatch(Likes)))
+                .toList()
         assertEquals(0, incomingEdges.size)
 
         val outgoingEdges =
-            tested.query(NodeMatch(PersonV1, Where.id(a.id)).outgoing(EdgeMatch(Likes))).toList()
+            tested.query(NodeMatch(PersonV1, Where.handle(a.handle)).outgoing(EdgeMatch(Likes)))
+                .toList()
         assertEquals(1, outgoingEdges.size)
         assertEquals(edge, outgoingEdges[0])
     }
@@ -216,18 +210,18 @@ abstract class BaseGraphLiteDatabaseTest {
     fun disconnectUnrelatedElements() {
         val e = tested.createEdge(Likes())
         val n = tested.createNode(Tree())
-        assertFalse(tested.disconnect(e.name, n.name))
+        assertFalse(tested.disconnect(e.handle, n.handle))
     }
 
     @Test
     fun disconnectElements() {
         val e = tested.createEdge(Likes())
         val n = tested.createNode(Tree())
-        val connection = tested.connect(e.name, n.name)
-        assertEquals(e.name, connection.edgeName)
-        assertEquals(n.name, connection.nodeName)
+        val connection = tested.connect(e.handle, n.handle)
+        assertEquals(e.handle, connection.edgeHandle)
+        assertEquals(n.handle, connection.nodeHandle)
         assertNull(connection.outgoing)
-        assertTrue(tested.disconnect(e.name, n.name))
+        assertTrue(tested.disconnect(e.handle, n.handle))
     }
 
     @Test
@@ -239,8 +233,8 @@ abstract class BaseGraphLiteDatabaseTest {
 
     @Test
     fun updateNonExistentNode() {
-        val node = Node(NodeIdImpl(uuid4().toString()), "test", PersonV1 { it[name] = "John Doe" })
-        assertThrows<RollbackException> {
+        val node = Node(NodeHandle("test"), PersonV1 { it[name] = "John Doe" })
+        assertThrows<IllegalStateException> {
             tested.updateField(node, PersonV1.name, "test value")
         }
     }
@@ -257,12 +251,23 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
+    fun updateFieldValuesByHandle() {
+        val node = tested.createNode(Tree { it[name] = "Oak"; it[secret] = byteArrayOf(0x7, 0x9) })
+        val updated =
+            tested.updateFields(node.handle, node.edit { it[age] = 102; it[secret] = null })
+        assertEquals("Oak", updated[Tree.name])
+        assertEquals(102, updated[Tree.age])
+        assertNull(updated[Tree.diameter])
+        assertNull(updated[Tree.location])
+        assertNull(updated[Tree.secret])
+    }
+
+    @Test
     fun changeSchema() {
         val a = tested.createEdge(Likes())
         val b = tested.updateFields(a, Loves())
-        val c = tested.query(EdgeMatch(Loves, Where.id(b.id))).first()
-        assertNotEquals(a.id, b.id)
-        assertEquals(a.name, b.name)
+        val c = tested.query(EdgeMatch(Loves, Where.handle(b.handle))).first()
+        assertEquals(a.handle, b.handle)
         assertEquals(b, c)
     }
 
@@ -272,51 +277,51 @@ abstract class BaseGraphLiteDatabaseTest {
         val b = tested.createNode(PersonV1 { it[name] = "Kim" })
         val c = tested.createNode(PersonV1 { it[name] = "Luke" })
         val e = tested.createEdge(Likes())
-        tested.connect(e.name, a.name)
-        tested.connect(e.name, b.name, true)
-        tested.connect(e.name, c.name)
+        tested.connect(e.handle, a.handle)
+        tested.connect(e.handle, b.handle, true)
+        tested.connect(e.handle, c.handle)
 
-        val aConnections = tested.getConnections(a.name).toList()
+        val aConnections = tested.getConnections(a.handle).toList()
         assertEquals(1, aConnections.size)
-        assertEquals(e.name, aConnections.first().edgeName)
-        assertEquals(a.name, aConnections.first().nodeName)
+        assertEquals(e.handle, aConnections.first().edgeHandle)
+        assertEquals(a.handle, aConnections.first().nodeHandle)
         assertEquals(null, aConnections.first().outgoing)
 
-        val bConnections = tested.getConnections(b.name).toList()
+        val bConnections = tested.getConnections(b.handle).toList()
         assertEquals(1, bConnections.size)
-        assertEquals(e.name, bConnections.first().edgeName)
-        assertEquals(b.name, bConnections.first().nodeName)
+        assertEquals(e.handle, bConnections.first().edgeHandle)
+        assertEquals(b.handle, bConnections.first().nodeHandle)
         assertEquals(true, bConnections.first().outgoing)
 
-        val cConnections = tested.getConnections(c.name).toList()
+        val cConnections = tested.getConnections(c.handle).toList()
         assertEquals(1, cConnections.size)
-        assertEquals(e.name, cConnections.first().edgeName)
-        assertEquals(c.name, cConnections.first().nodeName)
+        assertEquals(e.handle, cConnections.first().edgeHandle)
+        assertEquals(c.handle, cConnections.first().nodeHandle)
         assertEquals(null, cConnections.first().outgoing)
 
-        val nodeNames = listOf(a.name, b.name, c.name)
+        val nodeNames = listOf(a.handle, b.handle, c.handle)
         val outgoings = listOf(null, true, null)
 
-        val eConnections = tested.getConnections(e.name).toList()
+        val eConnections = tested.getConnections(e.handle).toList()
         assertEquals(3, eConnections.size)
         for (i in 0 until 3) {
-            val eConn = eConnections.first { it.nodeName == nodeNames[i] }
-            assertEquals(e.name, eConn.edgeName)
-            assertEquals(nodeNames[i], eConn.nodeName)
+            val eConn = eConnections.first { it.nodeHandle == nodeNames[i] }
+            assertEquals(e.handle, eConn.edgeHandle)
+            assertEquals(nodeNames[i], eConn.nodeHandle)
             assertEquals(outgoings[i], eConn.outgoing)
         }
     }
 
     @Test
     fun findSchemaForMissingElement() {
-        assertNull(tested.findEdgeSchema(EdgeIdImpl(uuid4().toString())))
-        assertNull(tested.findNodeSchema(NodeIdImpl(uuid4().toString())))
+        assertNull(tested.findEdgeSchema(EdgeHandle(uuid4().toString())))
+        assertNull(tested.findNodeSchema(NodeHandle(uuid4().toString())))
     }
 
     @Test
     fun getSchema() {
         val a = tested.createNode(Tree { it[name] = "Oak" })
-        val s = tested.findNodeSchema(a.id)
+        val s = tested.findNodeSchema(a.handle)
         assertEquals(Tree, s)
     }
 

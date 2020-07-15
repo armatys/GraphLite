@@ -77,7 +77,7 @@ sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: B
 }
 
 interface Field<in S : Schema, T> {
-    val name: String
+    val handle: FieldHandle
     val type: FieldType
 
     companion object {
@@ -115,17 +115,17 @@ interface Field<in S : Schema, T> {
             name: String,
             type: FieldType
         ): Field<S, T> =
-            FieldImpl(name, type)
+            FieldImpl(FieldHandle(name), type)
 
         private fun <S : Schema, T> makeIndexed(
             name: String,
             type: FieldType
-        ): IndexableField<S, T> = IndexableFieldImpl(name, type)
+        ): IndexableField<S, T> = IndexableFieldImpl(FieldHandle(name), type)
 
         private fun <S : Schema, T> makeIndexedScalar(
             name: String,
             type: FieldType
-        ): IndexableScalarField<S, T> = IndexableScalarFieldImpl(name, type)
+        ): IndexableScalarField<S, T> = IndexableScalarFieldImpl(FieldHandle(name), type)
     }
 }
 

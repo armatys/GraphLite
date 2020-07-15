@@ -16,13 +16,15 @@
 
 package pl.makenika.graphlite
 
-abstract class Schema(val schemaName: String, val schemaVersion: Long) {
-    private val fields = mutableMapOf<String, Field<*, *>>()
+abstract class Schema(val schemaHandle: SchemaHandle, val schemaVersion: Long) {
+    constructor(handleValue: String, version: Long) : this(SchemaHandle(handleValue), version)
+
+    private val fields = mutableMapOf<FieldHandle, Field<*, *>>()
     private var isFrozen = false
 
     internal fun <F : Field<S, *>, S : Schema> addField(field: F): F {
         if (isFrozen) error("Schema is already frozen.")
-        check(fields.put(field.name, field) == null)
+        check(fields.put(field.handle, field) == null)
         return field
     }
 
@@ -63,7 +65,7 @@ abstract class Schema(val schemaName: String, val schemaVersion: Long) {
         if (other == null) return false
         if (other !is Schema) return false
 
-        if (schemaName != other.schemaName) return false
+        if (schemaHandle != other.schemaHandle) return false
         if (schemaVersion != other.schemaVersion) return false
         if (fields != other.fields) return false
 
@@ -71,14 +73,14 @@ abstract class Schema(val schemaName: String, val schemaVersion: Long) {
     }
 
     override fun hashCode(): Int {
-        var result = schemaName.hashCode()
+        var result = schemaHandle.hashCode()
         result = 31 * result + schemaVersion.hashCode()
         result = 31 * result + fields.hashCode()
         return result
     }
 
     override fun toString(): String {
-        return "Schema(name='$schemaName', version=$schemaVersion)"
+        return "Schema(handle='$schemaHandle', version=$schemaVersion)"
     }
 }
 

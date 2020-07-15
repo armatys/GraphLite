@@ -16,52 +16,50 @@
 
 package pl.makenika.graphlite.sql
 
-import pl.makenika.graphlite.FieldId
-
 //language=SQLITE-SQL
 val schemaV1 = arrayOf(
     """create table if not exists Schema (
   id varchar primary key not null,
-  name text not null,
+  handle varchar not null,
   version int not null
 );""",
 
-    "create unique index if not exists schemaIndex on Schema (name, version);",
+    "create unique index if not exists schemaIndex on Schema (handle, version);",
 
     """create table if not exists Field (
   id varchar primary key not null,
-  name text not null,
+  handle varchar not null,
   schemaId varchar not null,
   type varchar(16) not null, -- blob, integer, real, text, geo
   foreign key (schemaId) references Schema (id) on delete cascade
 );""",
 
-    "create unique index if not exists fieldIndex on Field (schemaId, name);",
+    "create unique index if not exists fieldIndex on Field (schemaId, handle);",
 
     """create table if not exists Element (
   id varchar primary key not null,
-  name text not null unique,
+  handle varchar not null unique,
   schemaId varchar not null,
   type varchar not null,
   foreign key (schemaId) references Schema (id) on delete cascade
 );""",
 
-    "create index if not exists elementSchemaNameIndex on Element (schemaId, name);",
+    "create index if not exists elementSchemaNameIndex on Element (schemaId, handle);",
     "create index if not exists elementSchemaTypeIndex on Element (schemaId, type);",
 
     """create table if not exists Connection (
   id varchar primary key not null,
-  edgeName varchar not null,
-  nodeName varchar not null,
+  edgeHandle varchar not null,
+  nodeHandle varchar not null,
   outgoing boolean,
-  foreign key (edgeName) references Element (name) on delete cascade,
-  foreign key (nodeName) references Element (name) on delete cascade
+  foreign key (edgeHandle) references Element (handle) on delete cascade,
+  foreign key (nodeHandle) references Element (handle) on delete cascade
 );""",
 
-    "create unique index if not exists edgeNodeIndex on Connection (edgeName, nodeName);",
-    "create unique index if not exists nodeEdgeIndex on Connection (nodeName, edgeName);",
-    "create index if not exists edgeOutgoingIndex on Connection (edgeName, outgoing);",
-    "create index if not exists nodeOutgoingIndex on Connection (nodeName, outgoing);"
+    "create unique index if not exists edgeNodeIndex on Connection (edgeHandle, nodeHandle);",
+    "create unique index if not exists nodeEdgeIndex on Connection (nodeHandle, edgeHandle);",
+    "create index if not exists edgeOutgoingIndex on Connection (edgeHandle, outgoing);",
+    "create index if not exists nodeOutgoingIndex on Connection (nodeHandle, outgoing);"
 )
 
 // TODO log table, or use Session extension https://www.sqlite.org/sessionintro.html
@@ -70,11 +68,11 @@ val schemaV1 = arrayOf(
 // id
 // timestamp
 
-fun getFieldValueTableName(fieldId: FieldId): String = "Field_${safeTableName(fieldId)}"
-fun getFtsTableName(fieldId: FieldId): String = "FieldFtsText_${safeTableName(fieldId)}"
-fun getRTreeTableName(fieldId: FieldId): String = "FieldGeo_${safeTableName(fieldId)}_rtree"
+fun getFieldValueTableName(fieldId: String): String = "Field_${safeTableName(fieldId)}"
+fun getFtsTableName(fieldId: String): String = "FieldFtsText_${safeTableName(fieldId)}"
+fun getRTreeTableName(fieldId: String): String = "FieldGeo_${safeTableName(fieldId)}_rtree"
 
-fun createTableFieldValueBlob(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val tableName = getFieldValueTableName(fieldId)
     //language=SQLITE-SQL
@@ -89,7 +87,7 @@ fun createTableFieldValueBlob(fieldId: FieldId, isValueOptional: Boolean): Array
     )
 }
 
-fun createTableFieldValueLongInt(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -107,7 +105,7 @@ fun createTableFieldValueLongInt(fieldId: FieldId, isValueOptional: Boolean): Ar
     )
 }
 
-fun createTableFieldValueDoubleFloat(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -125,7 +123,7 @@ fun createTableFieldValueDoubleFloat(fieldId: FieldId, isValueOptional: Boolean)
     )
 }
 
-fun createTableFieldValueText(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueText(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -165,7 +163,7 @@ fun createTableFieldValueText(fieldId: FieldId, isValueOptional: Boolean): Array
     )
 }
 
-fun createTableFieldValueGeo(fieldId: FieldId, isValueOptional: Boolean): Array<String> {
+fun createTableFieldValueGeo(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -208,4 +206,4 @@ fun createTableFieldValueGeo(fieldId: FieldId, isValueOptional: Boolean): Array<
     )
 }
 
-private fun safeTableName(fieldId: FieldId): String = fieldId.toString().replace(Regex("[^a-zA-Z0-9]"), "")
+private fun safeTableName(fieldId: String): String = fieldId.replace(Regex("[^a-zA-Z0-9]"), "")

@@ -46,7 +46,7 @@ class FieldMapBuilder<S : Schema>(private val schema: S) {
                 if (field.type.optional) {
                     fieldMap[field] = null
                 } else {
-                    error("Cannot create FieldMap: field ${field.name} is missing.")
+                    error("Cannot create FieldMap: field ${field.handle} is missing.")
                 }
             }
         }

@@ -35,7 +35,11 @@ interface EdgeMatch<S : Schema> : ElementMatch<S> {
 }
 
 @Suppress("FunctionName")
-fun <S : Schema> EdgeMatch(schema: S, where: Where<S>? = null, order: Order<S>? = null): EdgeMatch<S> {
+fun <S : Schema> EdgeMatch(
+    schema: S,
+    where: Where<S>? = null,
+    order: Order<S>? = null
+): EdgeMatch<S> {
     return EdgesBySchema(schema, where, order)
 }
 
@@ -60,7 +64,11 @@ interface NodeMatch<S : Schema> : ElementMatch<S> {
 }
 
 @Suppress("FunctionName")
-fun <S : Schema> NodeMatch(schema: S, where: Where<S>? = null, order: Order<S>? = null): NodeMatch<S> {
+fun <S : Schema> NodeMatch(
+    schema: S,
+    where: Where<S>? = null,
+    order: Order<S>? = null
+): NodeMatch<S> {
     return NodesBySchema(schema, where, order)
 }
 
@@ -70,19 +78,30 @@ interface Where<S : Schema> {
 
         fun <S : Schema> or(a: Where<S>, b: Where<S>): Where<S> = WhereImpl.Or(a, b)
 
-        fun <S : Schema> id(id: ElementId): Where<S> = WhereImpl.Id(id)
+        fun <S : Schema> handle(handle: ElementHandle): Where<S> = WhereImpl.Handle(handle)
 
-        fun <S : Schema> name(name: String): Where<S> = WhereImpl.Name(name)
+        fun <S : Schema> handle(handleName: String): Where<S> = WhereImpl.Handle(ElementHandle(handleName))
 
-        fun <S : Schema, V : Any, T : V?> between(field: IndexableScalarField<S, T>, start: V, end: V): Where<S> =
+        fun <S : Schema, V : Any, T : V?> between(
+            field: IndexableScalarField<S, T>,
+            start: V,
+            end: V
+        ): Where<S> =
             WhereImpl.Between(field, start, end)
 
-        fun <S : Schema, T> eq(field: IndexableField<S, T>, value: T): Where<S> = WhereImpl.Equal(field, value)
+        fun <S : Schema, T> eq(field: IndexableField<S, T>, value: T): Where<S> =
+            WhereImpl.Equal(field, value)
 
-        fun <S : Schema, V : Any, T : V?> gt(field: IndexableScalarField<S, T>, value: V): Where<S> =
+        fun <S : Schema, V : Any, T : V?> gt(
+            field: IndexableScalarField<S, T>,
+            value: V
+        ): Where<S> =
             WhereImpl.GreaterThan(field, value)
 
-        fun <S : Schema, V : Any, T : V?> lt(field: IndexableScalarField<S, T>, value: V): Where<S> =
+        fun <S : Schema, V : Any, T : V?> lt(
+            field: IndexableScalarField<S, T>,
+            value: V
+        ): Where<S> =
             WhereImpl.LessThan(field, value)
 
         fun <S : Schema, T> within(field: IndexableScalarField<S, T>, values: List<T>): Where<S> =
@@ -91,10 +110,16 @@ interface Where<S : Schema> {
         fun <S : Schema> fts(field: IndexableScalarField<S, String>, value: String): Where<S> =
             WhereImpl.FullText(field, value)
 
-        fun <S : Schema, T : GeoBounds?> inside(field: IndexableField<S, T>, value: GeoBounds): Where<S> =
+        fun <S : Schema, T : GeoBounds?> inside(
+            field: IndexableField<S, T>,
+            value: GeoBounds
+        ): Where<S> =
             WhereImpl.Inside(field, value)
 
-        fun <S : Schema, T : GeoBounds?> overlaps(field: IndexableField<S, T>, value: GeoBounds): Where<S> =
+        fun <S : Schema, T : GeoBounds?> overlaps(
+            field: IndexableField<S, T>,
+            value: GeoBounds
+        ): Where<S> =
             WhereImpl.Overlaps(field, value)
     }
 }

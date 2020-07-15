@@ -12,7 +12,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.random.Random
-import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class GraphLiteBenchmark {
@@ -45,7 +44,7 @@ class GraphLiteBenchmark {
     fun findByName() {
         benchmarkRule.measureRepeated {
             val i = Random.nextInt()
-            tested.query(NodeMatch(PersonV1, Where.name("$i"))).firstOrNull()
+            tested.query(NodeMatch(PersonV1, Where.handle("$i"))).firstOrNull()
         }
     }
 
@@ -53,7 +52,7 @@ class GraphLiteBenchmark {
     fun loadNode() {
         val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
         benchmarkRule.measureRepeated {
-            tested.query(NodeMatch(PersonV1, Where.id(node.id))).first()
+            tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first()
         }
     }
 
@@ -61,7 +60,7 @@ class GraphLiteBenchmark {
     fun deleteByName() {
         benchmarkRule.measureRepeated {
             val i = Random.nextInt()
-            tested.deleteNode("$i")
+            tested.deleteNode(NodeHandle("$i"))
         }
     }
 }

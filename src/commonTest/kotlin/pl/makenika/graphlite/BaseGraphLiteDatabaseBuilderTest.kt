@@ -50,7 +50,7 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
         val a1 = db1.createNode("alice", PersonV1 { it[name] = "Alice Kowalski" })!!
         val j1 = db1.createNode("john", PersonV1 { it[name] = "John Doe" })!!
         val likesEdge = db1.createEdge(Likes())
-        db1.connect(likesEdge.name, a1.name, j1.name, false)
+        db1.connect(likesEdge.handle, a1.handle, j1.handle, false)
 
         tested = GraphLiteDatabaseBuilder(driver)
         val db2 = tested
@@ -69,28 +69,26 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
             }
             .open()
 
-        val a2 = db2.query(NodeMatch(PersonV2, Where.name("alice"))).first()
-        assertNotEquals(a1.id, a2.id)
-        assertEquals(a1.name, a2.name)
+        val a2 = db2.query(NodeMatch(PersonV2, Where.handle("alice"))).first()
+        assertEquals(a1.handle, a2.handle)
         assertEquals("Alice", a2 { firstName })
         assertEquals("Kowalski", a2 { lastName })
 
-        val j2 = db2.query(NodeMatch(PersonV2, Where.name("john"))).first()
-        assertNotEquals(j1.id, j2.id)
-        assertEquals(j1.name, j2.name)
+        val j2 = db2.query(NodeMatch(PersonV2, Where.handle("john"))).first()
+        assertEquals(j1.handle, j2.handle)
         assertEquals("John", j2 { firstName })
         assertEquals("Doe", j2 { lastName })
 
-        val aliceConnections = db2.getConnections(a2.name).toList()
+        val aliceConnections = db2.getConnections(a2.handle).toList()
         assertEquals(1, aliceConnections.size)
-        assertEquals(likesEdge.name, aliceConnections.first().edgeName)
-        assertEquals(a2.name, aliceConnections.first().nodeName)
+        assertEquals(likesEdge.handle, aliceConnections.first().edgeHandle)
+        assertEquals(a2.handle, aliceConnections.first().nodeHandle)
         assertEquals(null, aliceConnections.first().outgoing)
 
-        val johnConnections = db2.getConnections(j2.name).toList()
+        val johnConnections = db2.getConnections(j2.handle).toList()
         assertEquals(1, johnConnections.size)
-        assertEquals(likesEdge.name, johnConnections.first().edgeName)
-        assertEquals(j2.name, johnConnections.first().nodeName)
+        assertEquals(likesEdge.handle, johnConnections.first().edgeHandle)
+        assertEquals(j2.handle, johnConnections.first().nodeHandle)
         assertEquals(null, johnConnections.first().outgoing)
     }
 }

@@ -16,43 +16,40 @@
 
 package pl.makenika.graphlite
 
-interface GraphId
-
-interface ConnectionId : GraphId
-interface FieldId : GraphId
-
-interface ElementId : GraphId
-interface EdgeId : ElementId
-interface NodeId : ElementId
-
-internal inline class ConnectionIdImpl(private val uuid: String) : ConnectionId {
-    override fun toString(): String {
-        return uuid
-    }
+interface Handle {
+    val value: String
 }
 
-internal inline class EdgeIdImpl(private val uuid: String) : EdgeId {
-    override fun toString(): String {
-        return uuid
-    }
-}
+interface SchemaHandle : Handle
+interface FieldHandle : Handle
+interface ElementHandle : Handle
+interface EdgeHandle : ElementHandle
+interface NodeHandle : ElementHandle
 
-internal inline class FieldIdImpl(private val uuid: String) : FieldId {
-    override fun toString(): String {
-        return uuid
-    }
-}
+@Suppress("FunctionName")
+fun SchemaHandle(value: String): SchemaHandle = SchemaHandleImpl(value)
 
-internal inline class NodeIdImpl(private val uuid: String) : NodeId {
-    override fun toString(): String {
-        return uuid
-    }
-}
+@Suppress("FunctionName")
+fun FieldHandle(value: String): FieldHandle = FieldHandleImpl(value)
+
+@Suppress("FunctionName")
+fun ElementHandle(value: String): ElementHandle = ElementHandleImpl(value)
+
+@Suppress("FunctionName")
+fun EdgeHandle(value: String): EdgeHandle = EdgeHandleImpl(value)
+
+@Suppress("FunctionName")
+fun NodeHandle(value: String): NodeHandle = NodeHandleImpl(value)
+
+private inline class SchemaHandleImpl(override val value: String) : SchemaHandle
+private inline class FieldHandleImpl(override val value: String) : FieldHandle
+private inline class ElementHandleImpl(override val value: String) : ElementHandle
+private inline class EdgeHandleImpl(override val value: String) : EdgeHandle
+private inline class NodeHandleImpl(override val value: String) : NodeHandle
 
 data class Connection(
-    val id: ConnectionId,
-    val edgeName: String,
-    val nodeName: String,
+    val edgeHandle: EdgeHandle,
+    val nodeHandle: NodeHandle,
     val outgoing: Boolean?
 )
 
@@ -61,23 +58,20 @@ enum class ElementType(internal val code: String) {
 }
 
 interface GraphElement<S : Schema> {
-    val id: ElementId
-    val name: String
+    val handle: ElementHandle
     val fieldMap: FieldMap<S>
     val type: ElementType
 }
 
 data class Edge<S : Schema>(
-    override val id: EdgeId,
-    override val name: String,
+    override val handle: EdgeHandle,
     override val fieldMap: FieldMap<S>
 ) : FieldMap<S> by fieldMap, GraphElement<S> {
     override val type: ElementType = ElementType.Edge
 }
 
 data class Node<S : Schema>(
-    override val id: NodeId,
-    override val name: String,
+    override val handle: NodeHandle,
     override val fieldMap: FieldMap<S>
 ) : FieldMap<S> by fieldMap, GraphElement<S> {
     override val type: ElementType = ElementType.Node

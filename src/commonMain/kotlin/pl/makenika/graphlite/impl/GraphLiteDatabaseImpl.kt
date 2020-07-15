@@ -16,10 +16,10 @@
 
 package pl.makenika.graphlite.impl
 
+import com.benasher44.uuid.Uuid
 import com.benasher44.uuid.uuid4
 import pl.makenika.graphlite.*
 import pl.makenika.graphlite.impl.GraphSqlUtils.getElementId
-import pl.makenika.graphlite.impl.GraphSqlUtils.getElementName
 import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
 import pl.makenika.graphlite.impl.GraphSqlUtils.getSchemaFields
 import pl.makenika.graphlite.sql.*
@@ -32,80 +32,83 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         driver.close()
     }
 
-    override fun connect(edgeName: String, nodeName: String, outgoing: Boolean?): Connection {
+    override fun connect(
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle,
+        outgoing: Boolean?
+    ): Connection {
         val connId = uuid4()
         val values = SqlContentValues().apply {
             put("id", connId.toString())
-            put("edgeName", edgeName)
-            put("nodeName", nodeName)
+            put("edgeHandle", edgeHandle.value)
+            put("nodeHandle", nodeHandle.value)
             put("outgoing", outgoing?.let { if (it) 1 else 0 })
         }
         driver.insertOrAbortAndThrow("Connection", values)
-        return Connection(ConnectionIdImpl(connId.toString()), edgeName, nodeName, outgoing)
+        return Connection(edgeHandle, nodeHandle, outgoing)
     }
 
     override fun connect(
-        edgeName: String,
-        sourceNodeName: String,
-        targetNodeName: String,
+        edgeHandle: EdgeHandle,
+        sourceNodeHandle: NodeHandle,
+        targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection> {
-        require(sourceNodeName != targetNodeName) { "Cannot connect the same node name=$sourceNodeName." }
+        require(sourceNodeHandle != targetNodeHandle) { "Cannot connect the same node handle=$sourceNodeHandle." }
         return driver.transaction {
-            val a = connect(edgeName, sourceNodeName, if (directed) true else null)
-            val b = connect(edgeName, targetNodeName, if (directed) false else null)
+            val a = connect(edgeHandle, sourceNodeHandle, if (directed) true else null)
+            val b = connect(edgeHandle, targetNodeHandle, if (directed) false else null)
             listOf(a, b)
         }
     }
 
     override fun connectOrReplace(
-        edgeName: String,
-        nodeName: String,
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle,
         outgoing: Boolean?
     ): Connection {
         return transaction {
-            disconnect(edgeName, nodeName)
-            connect(edgeName, nodeName, outgoing)
+            disconnect(edgeHandle, nodeHandle)
+            connect(edgeHandle, nodeHandle, outgoing)
         }
     }
 
     override fun connectOrReplace(
-        edgeName: String,
-        sourceNodeName: String,
-        targetNodeName: String,
+        edgeHandle: EdgeHandle,
+        sourceNodeHandle: NodeHandle,
+        targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection> {
         return transaction {
-            val a = connectOrReplace(edgeName, sourceNodeName, if (directed) true else null)
-            val b = connectOrReplace(edgeName, targetNodeName, if (directed) false else null)
+            val a = connectOrReplace(edgeHandle, sourceNodeHandle, if (directed) true else null)
+            val b = connectOrReplace(edgeHandle, targetNodeHandle, if (directed) false else null)
             listOf(a, b)
         }
     }
 
-    override fun disconnect(edgeName: String, nodeName: String): Boolean {
+    override fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean {
         return driver.delete(
             "Connection",
-            "edgeName = ? AND nodeName = ?",
-            arrayOf(edgeName, nodeName)
+            "edgeHandle = ? AND nodeHandle = ?",
+            arrayOf(edgeHandle.value, nodeHandle.value)
         )
     }
 
-    override fun getConnections(elementName: String): Sequence<Connection> {
+    override fun getConnections(elementHandle: ElementHandle): Sequence<Connection> {
         return sequence {
             driver.beginTransaction()
             try {
                 driver.query(
-                    "SELECT * FROM Connection WHERE edgeName = ? OR nodeName = ?", arrayOf(
-                        elementName,
-                        elementName
+                    "SELECT * FROM Connection WHERE edgeHandle = ? OR nodeHandle = ?", arrayOf(
+                        elementHandle.value,
+                        elementHandle.value
                     )
                 ).use { cursor ->
                     while (cursor.moveToNext()) {
-                        val connId = cursor.getString("id")
-                        val edgeName = cursor.getString("edgeName")
-                        val nodeName = cursor.getString("nodeName")
+                        val edgeHandle = cursor.getString("edgeHandle")
+                        val nodeHandle = cursor.getString("nodeHandle")
                         val outgoing = cursor.findBoolean("outgoing")
-                        yield(Connection(ConnectionIdImpl(connId), edgeName, nodeName, outgoing))
+                        yield(Connection(EdgeHandle(edgeHandle), NodeHandle(nodeHandle), outgoing))
                     }
                 }
                 driver.setTransactionSuccessful()
@@ -115,36 +118,42 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun getOrConnect(edgeName: String, nodeName: String, outgoing: Boolean?): Connection {
+    override fun getOrConnect(
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle,
+        outgoing: Boolean?
+    ): Connection {
         return transaction {
-            findConnection(edgeName, nodeName) ?: connect(edgeName, nodeName, outgoing)
+            findConnection(edgeHandle, nodeHandle) ?: connect(edgeHandle, nodeHandle, outgoing)
         }
     }
 
     override fun getOrConnect(
-        edgeName: String,
-        sourceNodeName: String,
-        targetNodeName: String,
+        edgeHandle: EdgeHandle,
+        sourceNodeHandle: NodeHandle,
+        targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection> {
         return transaction {
-            val a = getOrConnect(edgeName, sourceNodeName, if (directed) true else null)
-            val b = getOrConnect(edgeName, targetNodeName, if (directed) false else null)
+            val a = getOrConnect(edgeHandle, sourceNodeHandle, if (directed) true else null)
+            val b = getOrConnect(edgeHandle, targetNodeHandle, if (directed) false else null)
             listOf(a, b)
         }
     }
 
-    override fun findConnection(edgeName: String, nodeName: String): Connection? {
-        val bindings = arrayOf(edgeName, nodeName)
+    override fun findConnection(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Connection? {
+        val bindings = arrayOf(edgeHandle.value, nodeHandle.value)
         return driver.transaction {
-            driver.query("SELECT * FROM Connection WHERE edgeName = ? AND nodeName = ?", bindings)
+            driver.query(
+                "SELECT * FROM Connection WHERE edgeHandle = ? AND nodeHandle = ?",
+                bindings
+            )
                 .use { cursor ->
                     if (cursor.moveToNext()) {
-                        val connId = cursor.getString("id")
-                        val eName = cursor.getString("edgeName")
-                        val nName = cursor.getString("nodeName")
+                        val eHandle = cursor.getString("edgeHandle")
+                        val nHandle = cursor.getString("nodeHandle")
                         val outgoing = cursor.findBoolean("outgoing")
-                        Connection(ConnectionIdImpl(connId), eName, nName, outgoing)
+                        Connection(EdgeHandle(eHandle), NodeHandle(nHandle), outgoing)
                     } else {
                         null
                     }
@@ -153,179 +162,234 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     override fun <S : Schema> createEdge(fieldMap: FieldMap<S>): Edge<S> {
-        val id = EdgeIdImpl(uuid4().toString())
-        val name = uuid4().toString()
+        val id = uuid4()
+        val handle = EdgeHandle(uuid4().toString())
         driver.transaction {
-            createElement(fieldMap, id, name, ElementType.Edge)
+            createElement(fieldMap, id, handle, ElementType.Edge)
         }
-        return Edge(id, name, fieldMap)
+        return Edge(handle, fieldMap)
     }
 
-    override fun <S : Schema> createEdge(name: String, fieldMap: FieldMap<S>): Edge<S>? {
-        val id = EdgeIdImpl(uuid4().toString())
+    override fun <S : Schema> createEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>? {
+        val id = uuid4()
         val ok = driver.transactionWithRollback {
-            createElement(fieldMap, id, name, ElementType.Edge)
+            createElement(fieldMap, id, handle, ElementType.Edge)
             true
         }.getOrDefault(false)
         return if (ok) {
-            Edge(id, name, fieldMap)
+            Edge(handle, fieldMap)
         } else {
             null
         }
     }
 
-    override fun <S : Schema> createOrReplaceEdge(name: String, fieldMap: FieldMap<S>): Edge<S> {
-        val id = EdgeIdImpl(uuid4().toString())
+    override fun <S : Schema> createEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>? {
+        return createEdge(EdgeHandle(handleValue), fieldMap)
+    }
+
+    override fun <S : Schema> createOrReplaceEdge(
+        handle: EdgeHandle,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
+        val id = uuid4()
         return driver.transaction {
-            val oldElementId = getElementId(driver, name)
+            val oldElementId = getElementId(driver, handle)
             if (oldElementId != null) {
-                val oldSchema = findElementSchema(oldElementId)
-                    ?: error("Could not find schema for edge name=$name")
+                val oldSchema =
+                    findElementSchema(handle)
+                        ?: error("Could not find schema for edge handle=$handle")
                 deleteFieldValues(oldElementId, oldSchema)
-                createElement(fieldMap, id, name, ElementType.Edge, updateOrReplace = true)
+                createElement(fieldMap, id, handle, ElementType.Edge, updateOrReplace = true)
             } else {
-                createElement(fieldMap, id, name, ElementType.Edge)
+                createElement(fieldMap, id, handle, ElementType.Edge)
             }
-            Edge(id, name, fieldMap)
+            Edge(handle, fieldMap)
         }
     }
 
-    override fun deleteEdge(name: String, withConnections: Boolean): Boolean {
-        return deleteElementByName(name, withConnections)
+    override fun <S : Schema> createOrReplaceEdge(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
+        return createOrReplaceEdge(EdgeHandle(handleValue), fieldMap)
     }
 
-    override fun deleteEdge(id: EdgeId, withConnections: Boolean): Boolean {
-        return deleteElementById(id, withConnections)
+    override fun deleteEdge(handle: EdgeHandle, withConnections: Boolean): Boolean {
+        return deleteElementByHandle(handle, withConnections)
     }
 
-    override fun findEdgeSchema(id: EdgeId): Schema? {
-        return findElementSchema(id)
+    override fun findEdgeSchema(handle: EdgeHandle): Schema? {
+        return findElementSchema(handle)
     }
 
-    override fun <S : Schema> getOrCreateEdge(name: String, fieldMap: FieldMap<S>): Edge<S> {
+    override fun <S : Schema> getOrCreateEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
-            query(EdgeMatch(fieldMap.schema(), Where.name(name))).firstOrNull() ?: run {
-                val id = EdgeIdImpl(uuid4().toString())
-                createElement(fieldMap, id, name, ElementType.Edge)
-                Edge(id, name, fieldMap)
+            query(EdgeMatch(fieldMap.schema(), Where.handle(handle))).firstOrNull() ?: run {
+                val id = uuid4()
+                createElement(fieldMap, id, handle, ElementType.Edge)
+                Edge(handle, fieldMap)
             }
         }
+    }
+
+    override fun <S : Schema> getOrCreateEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S> {
+        return getOrCreateEdge(EdgeHandle(handleValue), fieldMap)
     }
 
     override fun <S : Schema, T> updateField(edge: Edge<S>, field: Field<S, T>, value: T): Edge<S> {
         return driver.transaction {
-            updateFieldValue(edge.id, edge.fieldMap.schema(), field, value)
-            query(EdgeMatch(edge.fieldMap.schema(), Where.id(edge.id))).first()
+            val elementId = getElementId(driver, edge.handle)!!
+            updateFieldValue(elementId, edge.fieldMap.schema(), field, value)
+            query(EdgeMatch(edge.fieldMap.schema(), Where.handle(edge.handle))).first()
         }
     }
 
     override fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
-            val updatedId = updateFieldValues(
-                edge.name,
-                edge.id,
+            updateFieldValues(
+                edge.handle,
                 edge.fieldMap.schema(),
                 fieldMap
-            ) { EdgeIdImpl(uuid4().toString()) }
-            Edge(updatedId, edge.name, fieldMap)
+            )
+            Edge(edge.handle, fieldMap)
+        }
+    }
+
+    override fun <S : Schema> updateFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
+        return driver.transaction {
+            val schema = findElementSchema(handle) ?: error("Could not find schema for $handle")
+            updateFieldValues(
+                handle,
+                schema,
+                fieldMap
+            )
+            Edge(handle, fieldMap)
         }
     }
 
     override fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S> {
-        val id = NodeIdImpl(uuid4().toString())
-        val name = uuid4().toString()
+        val id = uuid4()
+        val handle = NodeHandle(uuid4().toString())
         driver.transaction {
-            createElement(fieldMap, id, name, ElementType.Node)
+            createElement(fieldMap, id, handle, ElementType.Node)
         }
-        return Node(id, name, fieldMap)
+        return Node(handle, fieldMap)
     }
 
-    override fun <S : Schema> createNode(name: String, fieldMap: FieldMap<S>): Node<S>? {
-        val id = NodeIdImpl(uuid4().toString())
+    override fun <S : Schema> createNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>? {
+        val id = uuid4()
         val ok = driver.transactionWithRollback {
-            createElement(fieldMap, id, name, ElementType.Node)
+            createElement(fieldMap, id, handle, ElementType.Node)
             true
         }.getOrDefault(false)
         return if (ok) {
-            Node(id, name, fieldMap)
+            Node(handle, fieldMap)
         } else {
             null
         }
     }
 
-    override fun <S : Schema> createOrReplaceNode(name: String, fieldMap: FieldMap<S>): Node<S> {
-        val id = NodeIdImpl(uuid4().toString())
+    override fun <S : Schema> createNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>? {
+        return createNode(NodeHandle(handleValue), fieldMap)
+    }
+
+    override fun <S : Schema> createOrReplaceNode(
+        handle: NodeHandle,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
+        val id = uuid4()
         return driver.transaction {
-            val oldElementId = getElementId(driver, name)
+            val oldElementId = getElementId(driver, handle)
             if (oldElementId != null) {
-                val oldSchema = findElementSchema(oldElementId)
-                    ?: error("Could not find schema for node name=$name")
+                val oldSchema =
+                    findElementSchema(handle)
+                        ?: error("Could not find schema for node handle=$handle")
                 deleteFieldValues(oldElementId, oldSchema)
-                createElement(fieldMap, id, name, ElementType.Node, updateOrReplace = true)
+                createElement(fieldMap, id, handle, ElementType.Node, updateOrReplace = true)
             } else {
-                createElement(fieldMap, id, name, ElementType.Node)
+                createElement(fieldMap, id, handle, ElementType.Node)
             }
-            Node(id, name, fieldMap)
+            Node(handle, fieldMap)
         }
     }
 
-    override fun deleteNode(name: String, withConnections: Boolean): Boolean {
-        return deleteElementByName(name, withConnections)
+    override fun <S : Schema> createOrReplaceNode(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
+        return createOrReplaceNode(NodeHandle(handleValue), fieldMap)
     }
 
-    override fun deleteNode(id: NodeId, withConnections: Boolean): Boolean {
-        return deleteElementById(id, withConnections)
+    override fun deleteNode(handle: NodeHandle, withConnections: Boolean): Boolean {
+        return deleteElementByHandle(handle, withConnections)
     }
 
-    override fun findNodeSchema(id: NodeId): Schema? {
-        return findElementSchema(id)
+    override fun findNodeSchema(handle: NodeHandle): Schema? {
+        return findElementSchema(handle)
     }
 
-    override fun <S : Schema> getOrCreateNode(name: String, fieldMap: FieldMap<S>): Node<S> {
+    override fun <S : Schema> getOrCreateNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
         return driver.transaction {
-            query(NodeMatch(fieldMap.schema(), Where.name(name))).firstOrNull() ?: run {
-                val id = NodeIdImpl(uuid4().toString())
-                createElement(fieldMap, id, name, ElementType.Node)
-                Node(id, name, fieldMap)
+            query(NodeMatch(fieldMap.schema(), Where.handle(handle))).firstOrNull() ?: run {
+                val id = uuid4()
+                createElement(fieldMap, id, handle, ElementType.Node)
+                Node(handle, fieldMap)
             }
         }
+    }
+
+    override fun <S : Schema> getOrCreateNode(handleValue: String, fieldMap: FieldMap<S>): Node<S> {
+        return getOrCreateNode(NodeHandle(handleValue), fieldMap)
     }
 
     override fun <S : Schema, T> updateField(node: Node<S>, field: Field<S, T>, value: T): Node<S> {
         return driver.transaction {
-            updateFieldValue(node.id, node.fieldMap.schema(), field, value)
-            query(NodeMatch(node.fieldMap.schema(), Where.id(node.id))).first()
+            val elementId =
+                getElementId(driver, node.handle) ?: error("Node ${node.handle} not found.")
+            updateFieldValue(elementId, node.fieldMap.schema(), field, value)
+            query(NodeMatch(node.fieldMap.schema(), Where.handle(node.handle))).first()
         }
     }
 
     override fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S> {
         return driver.transaction {
-            val updatedId = updateFieldValues(
-                node.name,
-                node.id,
+            updateFieldValues(
+                node.handle,
                 node.fieldMap.schema(),
                 fieldMap
-            ) { NodeIdImpl(uuid4().toString()) }
-            Node(updatedId, node.name, fieldMap)
+            )
+            Node(node.handle, fieldMap)
+        }
+    }
+
+    override fun <S : Schema> updateFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
+        return driver.transaction {
+            val schema = findElementSchema(handle) ?: error("Could not find schema for $handle")
+            updateFieldValues(
+                handle,
+                schema,
+                fieldMap
+            )
+            Node(handle, fieldMap)
         }
     }
 
     override fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>> {
         return driver.transaction {
-            val (schema, idToNameSeq) = performQuery(match)
-            idToNameSeq.map { (id, name) ->
+            val (schema, idToHandleValueSeq) = performQuery(match)
+            idToHandleValueSeq.map { (id, handleValue) ->
                 val fieldMap = getFieldMap(id, schema)
-                Edge(EdgeIdImpl(id), name, fieldMap)
+                Edge(EdgeHandle(handleValue), fieldMap)
             }
         }
     }
 
     override fun <S : Schema> query(match: NodeMatch<S>): Sequence<Node<S>> {
         return driver.transaction {
-            val (schema, idToNameSeq) = performQuery(match)
-            idToNameSeq.map { (id, name) ->
+            val (schema, idToHandleValueSeq) = performQuery(match)
+            idToHandleValueSeq.map { (id, handleValue) ->
                 val fieldMap = getFieldMap(id, schema)
-                Node(NodeIdImpl(id), name, fieldMap)
+                Node(NodeHandle(handleValue), fieldMap)
             }
         }
     }
@@ -340,24 +404,24 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
     private fun <S : Schema> createElement(
         fieldMap: FieldMap<S>,
-        elementId: ElementId,
-        name: String,
+        elementId: Uuid,
+        handle: ElementHandle,
         type: ElementType,
         updateOrReplace: Boolean = false
     ) {
-        require(name.isNotEmpty())
+        require(handle.value.isNotEmpty())
 
         val schema = fieldMap.schema()
         val schemaId = getSchemaId(driver, schema)
         val elementValues = SqlContentValues().apply {
             put("id", elementId.toString())
-            put("name", name)
+            put("handle", handle.value)
             put("schemaId", schemaId)
             put("type", type.code)
         }
 
         if (updateOrReplace) {
-            driver.updateOrReplace("Element", elementValues, "name = ?", arrayOf(name))
+            driver.updateOrReplace("Element", elementValues, "handle = ?", arrayOf(handle.value))
         } else {
             driver.insertOrAbortAndThrow("Element", elementValues)
         }
@@ -377,25 +441,16 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun deleteElementByName(name: String, withConnections: Boolean): Boolean {
-        if (withConnections) deleteElementConnections(name)
-        return driver.delete("Element", "name = ?", arrayOf(name))
+    private fun deleteElementByHandle(handle: ElementHandle, withConnections: Boolean): Boolean {
+        if (withConnections) deleteElementConnections(handle)
+        return driver.delete("Element", "handle = ?", arrayOf(handle.value))
     }
 
-    private fun deleteElementById(id: ElementId, withConnections: Boolean): Boolean {
-        if (withConnections) {
-            getElementName(driver, id)?.let {
-                deleteElementConnections(it)
-            }
-        }
-        return driver.delete("Element", "id = ?", arrayOf(id.toString()))
-    }
-
-    private fun deleteElementConnections(elementName: String) {
+    private fun deleteElementConnections(handle: ElementHandle) {
         driver.delete(
             "Connection",
-            "edgeName = ? OR nodeName = ?",
-            arrayOf(elementName, elementName)
+            "edgeHandle = ? OR nodeHandle = ?",
+            arrayOf(handle.value, handle.value)
         )
     }
 
@@ -415,17 +470,17 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun findElementSchema(elementId: ElementId): Schema? {
+    private fun findElementSchema(handle: ElementHandle): Schema? {
         return driver.transaction {
             val (schemaId, schema) = driver.query(
-                "SELECT id, name, version FROM Schema WHERE id = (SELECT schemaId FROM Element WHERE id = ?)",
-                arrayOf(elementId.toString())
+                "SELECT id, handle, version FROM Schema WHERE id = (SELECT schemaId FROM Element WHERE handle = ?)",
+                arrayOf(handle.value)
             ).use {
                 if (it.moveToNext()) {
                     val id = it.getString("id")
-                    val name = it.getString("name")
+                    val handleValue = it.getString("handle")
                     val version = it.getLong("version")
-                    Pair(id, object : Schema(name, version) {})
+                    Pair(id, object : Schema(SchemaHandle(handleValue), version) {})
                 } else {
                     return@transaction null
                 }
@@ -473,8 +528,8 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
     private fun getSchemaId(driver: SqliteDriver, schema: Schema): String {
         return driver.query(
-            "SELECT id FROM Schema WHERE name = ? AND version = ?",
-            arrayOf(schema.schemaName, schema.schemaVersion.toString())
+            "SELECT id FROM Schema WHERE handle = ? AND version = ?",
+            arrayOf(schema.schemaHandle.value, schema.schemaVersion.toString())
         ).use {
             if (it.moveToNext()) {
                 it.getString("id")
@@ -547,7 +602,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun <S : Schema, T> updateFieldValue(
-        elementId: ElementId,
+        elementId: String,
         schema: S,
         field: Field<S, T>,
         value: T
@@ -557,7 +612,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun <S : Schema, T> updateFieldValue(
-        elementId: ElementId,
+        elementId: String,
         schemaId: String,
         field: Field<S, T>,
         value: T
@@ -567,43 +622,42 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun <T> updateFieldValue(
-        elementId: ElementId,
-        fieldId: FieldId,
+        elementId: String,
+        fieldId: String,
         fieldType: FieldType,
         value: T
     ) {
         val fieldValueTableName = getFieldValueTableName(fieldId)
 
-        driver.delete(fieldValueTableName, "elementId = ?", arrayOf(elementId.toString()))
+        driver.delete(fieldValueTableName, "elementId = ?", arrayOf(elementId))
 
         val fieldValueId = uuid4().toString()
         val contentValues = SqlContentValues().apply {
             put("id", fieldValueId)
-            put("elementId", elementId.toString())
+            put("elementId", elementId)
         }
         fillFieldValue(fieldType, value, contentValues)
         driver.insertOrAbortAndThrow(fieldValueTableName, contentValues)
     }
 
-    private fun <S : Schema, ID : ElementId> updateFieldValues(
-        elementName: String,
-        oldElementId: ID,
+    private fun <S : Schema> updateFieldValues(
+        handle: ElementHandle,
         oldSchema: Schema,
-        newFieldMap: FieldMap<S>,
-        idFactory: () -> ID
-    ): ID {
+        newFieldMap: FieldMap<S>
+    ): String {
         val newSchema = newFieldMap.schema()
         val newSchemaId = getSchemaId(driver, newSchema)
         val hasNewSchema = oldSchema != newSchema
-        val elementId = if (hasNewSchema) idFactory() else oldElementId
+        val oldElementId = getElementId(driver, handle)!!
+        val elementId = if (hasNewSchema) uuid4().toString() else oldElementId
 
         if (hasNewSchema) {
             deleteFieldValues(oldElementId, oldSchema)
             val elementValues = SqlContentValues().apply {
-                put("id", elementId.toString())
+                put("id", elementId)
                 put("schemaId", newSchemaId)
             }
-            driver.updateOrReplace("Element", elementValues, "name = ?", arrayOf(elementName))
+            driver.updateOrReplace("Element", elementValues, "handle = ?", arrayOf(handle.value))
         }
 
         for ((_, field) in newSchema.getFields<S>()) {
@@ -614,11 +668,11 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return elementId
     }
 
-    private fun deleteFieldValues(elementId: ElementId, schema: Schema) {
+    private fun deleteFieldValues(elementId: String, schema: Schema) {
         for ((_, field) in schema.getFields<Schema>()) {
             val fieldId = getFieldId(driver, field, schema)
             val tableName = getFieldValueTableName(fieldId)
-            driver.delete(tableName, "elementId = ?", arrayOf(elementId.toString()))
+            driver.delete(tableName, "elementId = ?", arrayOf(elementId))
         }
     }
 }

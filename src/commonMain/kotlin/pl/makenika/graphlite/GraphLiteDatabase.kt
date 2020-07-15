@@ -19,53 +19,74 @@ package pl.makenika.graphlite
 interface GraphLiteDatabase {
     fun close()
 
-    fun connect(edgeName: String, nodeName: String, outgoing: Boolean? = null): Connection
     fun connect(
-        edgeName: String,
-        sourceNodeName: String,
-        targetNodeName: String,
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle,
+        outgoing: Boolean? = null
+    ): Connection
+
+    fun connect(
+        edgeHandle: EdgeHandle,
+        sourceNodeHandle: NodeHandle,
+        targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection>
 
-    fun connectOrReplace(edgeName: String, nodeName: String, outgoing: Boolean? = null): Connection
     fun connectOrReplace(
-        edgeName: String,
-        sourceNodeName: String,
-        targetNodeName: String,
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle,
+        outgoing: Boolean? = null
+    ): Connection
+
+    fun connectOrReplace(
+        edgeHandle: EdgeHandle,
+        sourceNodeHandle: NodeHandle,
+        targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection>
 
-    fun disconnect(edgeName: String, nodeName: String): Boolean
-    fun getConnections(elementName: String): Sequence<Connection>
-    fun getOrConnect(edgeName: String, nodeName: String, outgoing: Boolean? = null): Connection
+    fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean
+    fun getConnections(elementHandle: ElementHandle): Sequence<Connection>
     fun getOrConnect(
-        edgeName: String,
-        sourceNodeName: String,
-        targetNodeName: String,
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle,
+        outgoing: Boolean? = null
+    ): Connection
+
+    fun getOrConnect(
+        edgeHandle: EdgeHandle,
+        sourceNodeHandle: NodeHandle,
+        targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection>
 
-    fun findConnection(edgeName: String, nodeName: String): Connection?
+    fun findConnection(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Connection?
 
     fun <S : Schema> createEdge(fieldMap: FieldMap<S>): Edge<S>
-    fun <S : Schema> createEdge(name: String, fieldMap: FieldMap<S>): Edge<S>?
-    fun <S : Schema> createOrReplaceEdge(name: String, fieldMap: FieldMap<S>): Edge<S>
-    fun deleteEdge(name: String, withConnections: Boolean = true): Boolean
-    fun deleteEdge(id: EdgeId, withConnections: Boolean = true): Boolean
-    fun findEdgeSchema(id: EdgeId): Schema?
-    fun <S : Schema> getOrCreateEdge(name: String, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema> createEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>?
+    fun <S : Schema> createEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>?
+    fun <S : Schema> createOrReplaceEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema> createOrReplaceEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>
+    fun deleteEdge(handle: EdgeHandle, withConnections: Boolean = true): Boolean
+    fun findEdgeSchema(handle: EdgeHandle): Schema?
+    fun <S : Schema> getOrCreateEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema> getOrCreateEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>
     fun <S : Schema, T> updateField(edge: Edge<S>, field: Field<S, T>, value: T): Edge<S>
     fun <S : Schema> updateFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S>
+    fun <S : Schema> updateFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>
 
     fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S>
-    fun <S : Schema> createNode(name: String, fieldMap: FieldMap<S>): Node<S>?
-    fun <S : Schema> createOrReplaceNode(name: String, fieldMap: FieldMap<S>): Node<S>
-    fun deleteNode(name: String, withConnections: Boolean = true): Boolean
-    fun deleteNode(id: NodeId, withConnections: Boolean = true): Boolean
-    fun findNodeSchema(id: NodeId): Schema?
-    fun <S : Schema> getOrCreateNode(name: String, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema> createNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>?
+    fun <S : Schema> createNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>?
+    fun <S : Schema> createOrReplaceNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema> createOrReplaceNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>
+    fun deleteNode(handle: NodeHandle, withConnections: Boolean = true): Boolean
+    fun findNodeSchema(handle: NodeHandle): Schema?
+    fun <S : Schema> getOrCreateNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema> getOrCreateNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>
     fun <S : Schema, T> updateField(node: Node<S>, field: Field<S, T>, value: T): Node<S>
     fun <S : Schema> updateFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S>
+    fun <S : Schema> updateFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
 
     fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>>
     fun <S : Schema> query(match: NodeMatch<S>): Sequence<Node<S>>
