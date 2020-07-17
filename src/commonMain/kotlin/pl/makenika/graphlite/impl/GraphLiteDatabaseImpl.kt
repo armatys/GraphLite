@@ -18,6 +18,9 @@ package pl.makenika.graphlite.impl
 
 import com.benasher44.uuid.Uuid
 import com.benasher44.uuid.uuid4
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import pl.makenika.graphlite.*
 import pl.makenika.graphlite.impl.GraphSqlUtils.getElementId
 import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
@@ -94,26 +97,20 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         )
     }
 
-    override fun getConnections(elementHandle: ElementHandle): Sequence<Connection> {
-        return sequence {
-            driver.beginTransaction()
-            try {
-                driver.query(
-                    "SELECT * FROM Connection WHERE edgeHandle = ? OR nodeHandle = ?", arrayOf(
-                        elementHandle.value,
-                        elementHandle.value
-                    )
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        val edgeHandle = cursor.getString("edgeHandle")
-                        val nodeHandle = cursor.getString("nodeHandle")
-                        val outgoing = cursor.findBoolean("outgoing")
-                        yield(Connection(EdgeHandle(edgeHandle), NodeHandle(nodeHandle), outgoing))
-                    }
+    override fun getConnections(elementHandle: ElementHandle): Flow<Connection> {
+        return flow {
+            driver.query(
+                "SELECT * FROM Connection WHERE edgeHandle = ? OR nodeHandle = ?", arrayOf(
+                    elementHandle.value,
+                    elementHandle.value
+                )
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val edgeHandle = cursor.getString("edgeHandle")
+                    val nodeHandle = cursor.getString("nodeHandle")
+                    val outgoing = cursor.findBoolean("outgoing")
+                    emit(Connection(EdgeHandle(edgeHandle), NodeHandle(nodeHandle), outgoing))
                 }
-                driver.setTransactionSuccessful()
-            } finally {
-                driver.endTransaction()
             }
         }
     }
@@ -232,7 +229,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
     override fun <S : Schema> getOrCreateEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
         return driver.transaction {
-            query(EdgeMatch(fieldMap.schema(), Where.handle(handle))).firstOrNull() ?: run {
+            findElement(handle, fieldMap.schema(), ::Edge) ?: run {
                 val id = uuid4()
                 createElement(fieldMap, id, handle, ElementType.Edge)
                 Edge(handle, fieldMap)
@@ -252,7 +249,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return driver.transaction {
             val elementId = getElementId(driver, edge.handle)!!
             updateFieldValue(elementId, edge.fieldMap.schema(), field, value)
-            query(EdgeMatch(edge.fieldMap.schema(), Where.handle(edge.handle))).first()
+            findElement(edge.handle, edge.fieldMap.schema(), ::Edge)!!
         }
     }
 
@@ -357,7 +354,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
     override fun <S : Schema> getOrCreateNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
         return driver.transaction {
-            query(NodeMatch(fieldMap.schema(), Where.handle(handle))).firstOrNull() ?: run {
+            findElement(handle, fieldMap.schema(), ::Node) ?: run {
                 val id = uuid4()
                 createElement(fieldMap, id, handle, ElementType.Node)
                 Node(handle, fieldMap)
@@ -378,7 +375,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             val elementId =
                 getElementId(driver, node.handle) ?: error("Node ${node.handle} not found.")
             updateFieldValue(elementId, node.fieldMap.schema(), field, value)
-            query(NodeMatch(node.fieldMap.schema(), Where.handle(node.handle))).first()
+            findElement(node.handle, node.fieldMap.schema(), ::Node)!!
         }
     }
 
@@ -412,17 +409,17 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return updateNodeFields(NodeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>> {
+    override fun <S : Schema> query(match: EdgeMatch<S>): Flow<Edge<S>> {
         return driver.transaction {
-            val (schema, idToHandleValueSeq) = performQuery(match)
-            idToHandleValueSeq.map { (id, handleValue) ->
+            val (schema, idToHandleValueFlow) = performQuery(match)
+            idToHandleValueFlow.map { (id, handleValue) ->
                 val fieldMap = getFieldMap(id, schema)
                 Edge(EdgeHandle(handleValue), fieldMap)
             }
         }
     }
 
-    override fun <S : Schema> query(match: NodeMatch<S>): Sequence<Node<S>> {
+    override fun <S : Schema> query(match: NodeMatch<S>): Flow<Node<S>> {
         return driver.transaction {
             val (schema, idToHandleValueSeq) = performQuery(match)
             idToHandleValueSeq.map { (id, handleValue) ->
@@ -509,6 +506,21 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }.hashCode()
     }
 
+    private fun <T : GraphElement<S>, S : Schema, H : ElementHandle> findElement(
+        handle: H,
+        schema: S,
+        elementFactory: (H, FieldMap<S>) -> T
+    ): T? {
+        driver.query("SELECT id FROM Element WHERE handle = ?", arrayOf(handle.value)).use {
+            if (!it.moveToNext()) {
+                return null
+            }
+            val id = it.getString("id")
+            val fieldMap = getFieldMap(id, schema)
+            return elementFactory(handle, fieldMap)
+        }
+    }
+
     private fun findElementSchema(handle: ElementHandle): Schema? {
         return driver.transaction {
             val (schemaId, schema) = driver.query(
@@ -578,11 +590,9 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun <S : Schema> performQuery(match: ElementMatch<S>): Pair<S, Sequence<Pair<String, String>>> {
-        return when (match) {
-            is ElementMatchImpl<S> -> queryEngine.performQuery(match)
-            else -> error("Unknown ElementMatch subclass: $match")
-        }
+    private fun <S : Schema> performQuery(match: ElementMatch<S>): Pair<S, Flow<Pair<String, String>>> {
+        val m = match as? ElementMatchImpl<S> ?: error("Unknown ElementMatch subclass: $match")
+        return queryEngine.performQuery(m)
     }
 
     private fun <T> readPlainFieldValue(cursor: SqliteCursorFacade, fieldType: FieldType): T {

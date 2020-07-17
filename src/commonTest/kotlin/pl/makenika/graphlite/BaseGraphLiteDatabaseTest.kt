@@ -1,6 +1,10 @@
 package pl.makenika.graphlite
 
 import com.benasher44.uuid.uuid4
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import pl.makenika.graphlite.sql.RollbackException
 import pl.makenika.graphlite.sql.SqliteDriver
 import kotlin.test.*
@@ -8,10 +12,11 @@ import kotlin.test.*
 abstract class BaseGraphLiteDatabaseTest {
     private lateinit var tested: GraphLiteDatabase
 
+    protected abstract fun blocking(fn: suspend () -> Unit)
     protected abstract fun makeDriver(): SqliteDriver
 
     @BeforeTest
-    fun setUp() {
+    fun setUp() = blocking {
         val driver = makeDriver()
         tested = GraphLiteDatabaseBuilder(driver)
             .register(Animal)
@@ -28,7 +33,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createAndFindNode() {
+    fun createAndFindNode() = blocking {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val node = tested.createNode(fieldMap)
         val resultByName = tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first()
@@ -78,7 +83,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createOrReplaceEdge() {
+    fun createOrReplaceEdge() = blocking {
         tested.createEdge("test", Likes {})!!
         val b = tested.createOrReplaceEdge("test", Likes {})
 
@@ -87,7 +92,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createOrReplaceNode() {
+    fun createOrReplaceNode() = blocking {
         tested.createNode("test", Tree { it[name] = "a" })!!
         val b = tested.createOrReplaceNode("test", Tree { it[name] = "b" })
 
@@ -110,7 +115,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun deleteById() {
+    fun deleteById() = blocking {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val node = tested.createNode(fieldMap)
         assertTrue(tested.deleteNode(node.handle))
@@ -118,7 +123,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun deleteByName() {
+    fun deleteByName() = blocking {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val node = tested.createNode("test", fieldMap)!!
         assertEquals("test", node.handle.value)
@@ -183,7 +188,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun connectTwoNodes() {
+    fun connectTwoNodes() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "a" })
         val b = tested.createNode(PersonV1 { it[name] = "b" })
         val edge = tested.createEdge(Likes())
@@ -263,7 +268,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun changeSchema() {
+    fun changeSchema() = blocking {
         val a = tested.createEdge(Likes())
         val b = tested.updateEdgeFields(a, Loves())
         val c = tested.query(EdgeMatch(Loves, Where.handle(b.handle))).first()
@@ -272,7 +277,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun getConnections() {
+    fun getConnections() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Jane" })
         val b = tested.createNode(PersonV1 { it[name] = "Kim" })
         val c = tested.createNode(PersonV1 { it[name] = "Luke" })
@@ -326,7 +331,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createNodesInTransaction() {
+    fun createNodesInTransaction() = blocking {
         tested.transaction {
             createNode(Tree { it[name] = "Oak" })
             createNode(Tree { it[name] = "Willow" })
@@ -337,7 +342,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createNodesInFailedTransaction() {
+    fun createNodesInFailedTransaction() = blocking {
         var exceptionCaught = false
         try {
             tested.transaction {

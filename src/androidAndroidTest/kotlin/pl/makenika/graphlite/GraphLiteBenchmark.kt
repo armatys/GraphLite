@@ -5,6 +5,9 @@ import androidx.benchmark.junit4.BenchmarkRule
 import androidx.benchmark.junit4.measureRepeated
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.runBlocking
 import pl.makenika.graphlite.sql.AndroidSqliteDriver
 import org.junit.After
 import org.junit.Before
@@ -21,7 +24,7 @@ class GraphLiteBenchmark {
     private lateinit var tested: GraphLiteDatabase
 
     @Before
-    fun setUp() {
+    fun setUp() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val driver = AndroidSqliteDriver.newInstanceInMemory(context)
         tested = GraphLiteDatabaseBuilder(driver)
@@ -43,8 +46,10 @@ class GraphLiteBenchmark {
     @Test
     fun findByName() {
         benchmarkRule.measureRepeated {
-            val i = Random.nextInt()
-            tested.query(NodeMatch(PersonV1, Where.handle("$i"))).firstOrNull()
+            runBlocking {
+                val i = Random.nextInt()
+                tested.query(NodeMatch(PersonV1, Where.handle("$i"))).firstOrNull()
+            }
         }
     }
 
@@ -52,7 +57,7 @@ class GraphLiteBenchmark {
     fun loadNode() {
         val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
         benchmarkRule.measureRepeated {
-            tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first()
+            runBlocking { tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first() }
         }
     }
 

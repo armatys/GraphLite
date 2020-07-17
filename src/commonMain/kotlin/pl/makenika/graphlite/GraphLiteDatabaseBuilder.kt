@@ -40,7 +40,7 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
     fun <O : Schema, N : Schema> migration(
         oldSchema: O,
         newSchema: N,
-        fn: (GraphLiteDatabase) -> Unit
+        fn: Migration
     ): GraphLiteDatabaseBuilder {
         oldSchema.freeze()
         newSchema.freeze()
@@ -54,7 +54,7 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         return this
     }
 
-    fun open(): GraphLiteDatabase {
+    suspend fun open(): GraphLiteDatabase {
         val helper = GraphDriverHelper(driver, SQL_SCHEMA_VERSION)
         val db = GraphLiteDatabaseImpl(helper.open())
 
@@ -93,10 +93,14 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
             }
         }
 
-        driver.transaction {
+        try {
+            driver.beginTransaction()
             schemasToInsert.forEach { insertSchema(it) }
             migrationsToRun.forEach { performMigration(db, it) }
             schemasToDelete.forEach { deleteSchema(it) }
+            driver.setTransactionSuccessful()
+        } finally {
+            driver.endTransaction()
         }
 
         return db
@@ -165,7 +169,10 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         }
     }
 
-    private fun performMigration(db: GraphLiteDatabase, migrationRequest: MigrationRequest) {
+    private suspend fun performMigration(
+        db: GraphLiteDatabase,
+        migrationRequest: MigrationRequest
+    ) {
         val targetVersionMigrations =
             migrations[migrationRequest.newSchema.schemaHandle] ?: emptyMap<Int, Migration>()
         for (v in (migrationRequest.oldSchema.schemaVersion + 1)..migrationRequest.newSchema.schemaVersion) {
@@ -188,7 +195,7 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
     }
 }
 
-private typealias Migration = (GraphLiteDatabase) -> Unit
+private typealias Migration = suspend (GraphLiteDatabase) -> Unit
 
 private class MigrationRequest(val oldSchema: Schema, val newSchema: Schema)
 

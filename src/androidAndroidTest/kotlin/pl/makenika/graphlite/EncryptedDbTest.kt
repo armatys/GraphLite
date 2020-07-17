@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.runBlocking
 import pl.makenika.graphlite.sql.AndroidSqliteDriver
 import org.junit.After
 import org.junit.Before
@@ -46,9 +47,9 @@ class EncryptedDbTest {
         b.close()
     }
 
-    private fun makeGraphDb(password: String): GraphLiteDatabase {
+    private fun makeGraphDb(password: String): GraphLiteDatabase = runBlocking {
         val dbPath = context.getDatabasePath(dbName).path
         val driver = AndroidSqliteDriver.newInstance(context, dbPath, password)
-        return GraphLiteDatabaseBuilder(driver).register(Animal).open()
+        GraphLiteDatabaseBuilder(driver).register(Animal).open()
     }
 }

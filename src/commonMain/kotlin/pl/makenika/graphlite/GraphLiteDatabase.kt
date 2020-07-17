@@ -16,6 +16,8 @@
 
 package pl.makenika.graphlite
 
+import kotlinx.coroutines.flow.Flow
+
 interface GraphLiteDatabase {
     fun close()
 
@@ -46,7 +48,7 @@ interface GraphLiteDatabase {
     ): Collection<Connection>
 
     fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean
-    fun getConnections(elementHandle: ElementHandle): Sequence<Connection>
+    fun getConnections(elementHandle: ElementHandle): Flow<Connection>
     fun getOrConnect(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
@@ -94,8 +96,8 @@ interface GraphLiteDatabase {
     fun <S : Schema> updateNodeFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>
     fun <S : Schema> updateNodeFields(handleValue: String, fieldMap: FieldMap<S>): Node<S>
 
-    fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>>
-    fun <S : Schema> query(match: NodeMatch<S>): Sequence<Node<S>>
+    fun <S : Schema> query(match: EdgeMatch<S>): Flow<Edge<S>>
+    fun <S : Schema> query(match: NodeMatch<S>): Flow<Node<S>>
 
     fun <T> transaction(fn: GraphLiteDatabase.() -> T): T
 }

@@ -16,12 +16,14 @@
 
 package pl.makenika.graphlite.impl
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import pl.makenika.graphlite.*
 import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
 import pl.makenika.graphlite.sql.*
 
 internal class QueryEngine(private val driver: SqliteDriver) {
-    fun <S : Schema> performQuery(match: ElementMatchImpl<S>): Pair<S, Sequence<Pair<String, String>>> {
+    fun <S : Schema> performQuery(match: ElementMatchImpl<S>): Pair<S, Flow<Pair<String, String>>> {
         val querySpec = performQueryMatch(match)
         val query = buildSelect(
             "SELECT Element.id, Element.handle FROM Element",
@@ -30,17 +32,17 @@ internal class QueryEngine(private val driver: SqliteDriver) {
             orderBy = querySpec.orderBy
         )
 
-        val idToHandleValueSequence = sequence {
+        val idToHandleValueFlow: Flow<Pair<String, String>> = flow {
             driver.query(query, querySpec.whereBindings.toTypedArray())
                 .use { cursor ->
                     while (cursor.moveToNext()) {
                         val id = cursor.getString("id")
                         val handle = cursor.getString("handle")
-                        yield(id to handle)
+                        emit(id to handle)
                     }
                 }
         }
-        return querySpec.schema to idToHandleValueSequence
+        return querySpec.schema to idToHandleValueFlow
     }
 
     private fun <S : Schema> performQueryMatch(match: ElementMatch<S>): SqlQuerySpec<S> {

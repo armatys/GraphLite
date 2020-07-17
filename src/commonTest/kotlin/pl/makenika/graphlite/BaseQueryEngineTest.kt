@@ -1,15 +1,18 @@
 package pl.makenika.graphlite
 
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import pl.makenika.graphlite.sql.SqliteDriver
 import kotlin.test.*
 
 abstract class BaseQueryEngineTest {
     private lateinit var tested: GraphLiteDatabase
 
+    protected abstract fun blocking(fn: suspend () -> Unit)
     protected abstract fun makeDriver(): SqliteDriver
 
     @BeforeTest
-    fun setUp() {
+    fun setUp() = blocking {
         val driver = makeDriver()
         tested = GraphLiteDatabaseBuilder(driver)
             .register(Animal)
@@ -26,7 +29,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun schemaQuery() {
+    fun schemaQuery() = blocking {
         val p1 = tested.createNode(PersonV1 { it[name] = "John Doe" })
         val p2 = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
         val m = NodeMatch(PersonV1)
@@ -37,7 +40,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byNameQuery() {
+    fun byNameQuery() = blocking {
         tested.createNode(PersonV1 { it[name] = "John Doe" })
         val p1 = tested.createNode("p2", PersonV1 { it[name] = "Jane Smith" })
         val m = NodeMatch(PersonV1, Where.handle("p2"))
@@ -47,7 +50,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byEqAndHandleQuery() {
+    fun byEqAndHandleQuery() = blocking {
         val t1 = tested.createNode("t1", Tree { it[name] = "Oak"; it[age] = 101 })!!
         val m = NodeMatch(Tree, Where.and(Where.eq(Tree.age, 101), Where.handle("t1")))
         val list = tested.query(m).toList()
@@ -56,7 +59,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byIdOrNameQuery() {
+    fun byIdOrNameQuery() = blocking {
         val p1 = tested.createNode("p1", PersonV1 { it[name] = "Jane Smith" })
         val p2 = tested.createNode("p2", PersonV1 { it[name] = "John Doe" })
         assertNotNull(p2)
@@ -70,7 +73,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byGeoValueQuery() {
+    fun byGeoValueQuery() = blocking {
         val bounds = GeoBounds(1.0, 1.02, -5.5, -5.4)
         val tree = tested.createNode(Tree { it[location] = bounds })
         val m = NodeMatch(Tree, Where.eq(Tree.location, bounds))
@@ -80,7 +83,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byStringValueQuery() {
+    fun byStringValueQuery() = blocking {
         tested.createNode(PersonV1 { it[name] = "John Doe" })
         val p1 = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
         val p2 = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
@@ -90,7 +93,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byFtsQuery() {
+    fun byFtsQuery() = blocking {
         tested.createNode(PersonV1 { it[name] = "John Doe" })
         val p1 = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
         val p2 = tested.createNode(PersonV1 { it[name] = "Charlie Smith" })
@@ -100,7 +103,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byIntBetweenQuery() {
+    fun byIntBetweenQuery() = blocking {
         tested.createNode(Tree { it[age] = 42 })
         val t2 = tested.createNode(Tree { it[age] = 128 })
         val m = NodeMatch(Tree, Where.between(Tree.age, 100, 130))
@@ -110,7 +113,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byIntGreaterThanQuery() {
+    fun byIntGreaterThanQuery() = blocking {
         val a = tested.createNode(Tree { it[age] = 42 })
         val b = tested.createNode(Tree { it[age] = 128 })
         tested.createNode(Tree { it[age] = 15 })
@@ -120,7 +123,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byRealLessThanQuery() {
+    fun byRealLessThanQuery() = blocking {
         val a = tested.createNode(Tree { it[diameter] = 30.0 })
         val b = tested.createNode(Tree { it[diameter] = 6.0 })
         tested.createNode(Tree { it[diameter] = 128.0 })
@@ -130,7 +133,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byStringWithinQuery() {
+    fun byStringWithinQuery() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -140,7 +143,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byGeoInsideQuery() {
+    fun byGeoInsideQuery() = blocking {
         val a = tested.createNode(Tree { it[location] = GeoBounds(5.0, 5.1, 10.0, 10.05) })
         tested.createNode(Tree { it[location] = GeoBounds(6.0, 6.1, 10.0, 10.05) })
         tested.createNode(Tree { it[location] = GeoBounds(15.0, 15.1, -20.0, -19.95) })
@@ -150,7 +153,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun byGeoOverlapsQuery() {
+    fun byGeoOverlapsQuery() = blocking {
         val a = tested.createNode(Tree { it[location] = GeoBounds(5.0, 6.0, 10.0, 11.0) })
         val b = tested.createNode(Tree { it[location] = GeoBounds(6.0, 7.0, 10.0, 11.0) })
         tested.createNode(Tree { it[location] = GeoBounds(15.0, 16.0, -20.0, -19.0) })
@@ -160,7 +163,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun followOutEdges() {
+    fun followOutEdges() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
         val b = tested.createNode(PersonV1 { it[name] = "John Doe" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie Chaplin" })
@@ -177,7 +180,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun traceInEdges() {
+    fun traceInEdges() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
         val b = tested.createNode(PersonV1 { it[name] = "John Doe" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie Chaplin" })
@@ -194,7 +197,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun connectedEdges() {
+    fun connectedEdges() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Jane Smith" })
         val b = tested.createNode(PersonV1 { it[name] = "John Doe" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie Chaplin" })
@@ -211,7 +214,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun endpointNodes() {
+    fun endpointNodes() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -226,7 +229,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun sourceNodes() {
+    fun sourceNodes() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -243,7 +246,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun targetNodes() {
+    fun targetNodes() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -260,7 +263,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun nodeNeighbours() {
+    fun nodeNeighbours() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -277,7 +280,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun nodeSourceNeighbours() {
+    fun nodeSourceNeighbours() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -294,7 +297,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun nodeTargetNeighbours() {
+    fun nodeTargetNeighbours() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -311,7 +314,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun mutualLove() {
+    fun mutualLove() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -330,7 +333,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun unrequitedLove() {
+    fun unrequitedLove() = blocking {
         val a = tested.createNode(PersonV1 { it[name] = "Alice" })
         val b = tested.createNode(PersonV1 { it[name] = "Bob" })
         val c = tested.createNode(PersonV1 { it[name] = "Charlie" })
@@ -349,7 +352,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun stringOrderAsc() {
+    fun stringOrderAsc() = blocking {
         tested.createNode(PersonV1 { it[name] = "Charlie" })
         tested.createNode(PersonV1 { it[name] = "Alice" })
         tested.createNode(PersonV1 { it[name] = "Bob" })
@@ -358,7 +361,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun stringOrderDesc() {
+    fun stringOrderDesc() = blocking {
         tested.createNode(PersonV1 { it[name] = "Charlie" })
         tested.createNode(PersonV1 { it[name] = "Alice" })
         tested.createNode(PersonV1 { it[name] = "Bob" })
@@ -367,7 +370,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun intOrderAsc() {
+    fun intOrderAsc() = blocking {
         tested.createNode(Tree { it[age] = 30 })
         tested.createNode(Tree { it[age] = 25 })
         tested.createNode(Tree { it[age] = 47 })
@@ -376,7 +379,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun intOrderDesc() {
+    fun intOrderDesc() = blocking {
         tested.createNode(Tree { it[age] = 30 })
         tested.createNode(Tree { it[age] = 25 })
         tested.createNode(Tree { it[age] = 47 })
@@ -385,7 +388,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun realOrderAsc() {
+    fun realOrderAsc() = blocking {
         tested.createNode(Tree { it[diameter] = 1.0 })
         tested.createNode(Tree { it[diameter] = 0.3 })
         tested.createNode(Tree { it[diameter] = 2.0 })
@@ -394,7 +397,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun realOrderDesc() {
+    fun realOrderDesc() = blocking {
         tested.createEdge(Tree { it[diameter] = 1.0 })
         tested.createEdge(Tree { it[diameter] = 0.3 })
         tested.createEdge(Tree { it[diameter] = 2.0 })
@@ -403,7 +406,7 @@ abstract class BaseQueryEngineTest {
     }
 
     @Test
-    fun filteredQueryWithOrder() {
+    fun filteredQueryWithOrder() = blocking {
         tested.createNode(Tree {
             it[name] = "Oak"
             it[age] = 5
