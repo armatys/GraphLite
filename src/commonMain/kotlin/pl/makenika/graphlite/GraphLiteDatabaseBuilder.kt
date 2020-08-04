@@ -93,14 +93,10 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
             }
         }
 
-        try {
-            driver.beginTransaction()
+        driver.transaction {
             schemasToInsert.forEach { insertSchema(it) }
             migrationsToRun.forEach { performMigration(db, it) }
             schemasToDelete.forEach { deleteSchema(it) }
-            driver.setTransactionSuccessful()
-        } finally {
-            driver.endTransaction()
         }
 
         return db

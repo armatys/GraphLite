@@ -18,9 +18,8 @@ package pl.makenika.graphlite.impl
 
 import com.benasher44.uuid.Uuid
 import com.benasher44.uuid.uuid4
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import pl.makenika.graphlite.*
 import pl.makenika.graphlite.impl.GraphSqlUtils.getElementId
 import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
@@ -35,23 +34,25 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         driver.close()
     }
 
-    override fun connect(
+    override suspend fun connect(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
         outgoing: Boolean?
     ): Connection {
-        val connId = uuid4()
-        val values = SqlContentValues().apply {
-            put("id", connId.toString())
-            put("edgeHandle", edgeHandle.value)
-            put("nodeHandle", nodeHandle.value)
-            put("outgoing", outgoing?.let { if (it) 1 else 0 })
+        return driver.transaction {
+            val connId = uuid4()
+            val values = SqlContentValues().apply {
+                put("id", connId.toString())
+                put("edgeHandle", edgeHandle.value)
+                put("nodeHandle", nodeHandle.value)
+                put("outgoing", outgoing?.let { if (it) 1 else 0 })
+            }
+            driver.insertOrAbortAndThrow("Connection", values)
+            Connection(edgeHandle, nodeHandle, outgoing)
         }
-        driver.insertOrAbortAndThrow("Connection", values)
-        return Connection(edgeHandle, nodeHandle, outgoing)
     }
 
-    override fun connect(
+    override suspend fun connect(
         edgeHandle: EdgeHandle,
         sourceNodeHandle: NodeHandle,
         targetNodeHandle: NodeHandle,
@@ -65,7 +66,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun connectOrReplace(
+    override suspend fun connectOrReplace(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
         outgoing: Boolean?
@@ -76,7 +77,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun connectOrReplace(
+    override suspend fun connectOrReplace(
         edgeHandle: EdgeHandle,
         sourceNodeHandle: NodeHandle,
         targetNodeHandle: NodeHandle,
@@ -89,12 +90,14 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean {
-        return driver.delete(
-            "Connection",
-            "edgeHandle = ? AND nodeHandle = ?",
-            arrayOf(edgeHandle.value, nodeHandle.value)
-        )
+    override suspend fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean {
+        return driver.transaction {
+            driver.delete(
+                "Connection",
+                "edgeHandle = ? AND nodeHandle = ?",
+                arrayOf(edgeHandle.value, nodeHandle.value)
+            )
+        }
     }
 
     override fun getConnections(elementHandle: ElementHandle): Flow<Connection> {
@@ -115,7 +118,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun getOrConnect(
+    override suspend fun getOrConnect(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
         outgoing: Boolean?
@@ -125,7 +128,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun getOrConnect(
+    override suspend fun getOrConnect(
         edgeHandle: EdgeHandle,
         sourceNodeHandle: NodeHandle,
         targetNodeHandle: NodeHandle,
@@ -138,7 +141,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun findConnection(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Connection? {
+    override suspend fun findConnection(
+        edgeHandle: EdgeHandle,
+        nodeHandle: NodeHandle
+    ): Connection? {
         val bindings = arrayOf(edgeHandle.value, nodeHandle.value)
         return driver.transaction {
             driver.query(
@@ -158,7 +164,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> createEdge(fieldMap: FieldMap<S>): Edge<S> {
+    override suspend fun <S : Schema> createEdge(fieldMap: FieldMap<S>): Edge<S> {
         val id = uuid4()
         val handle = EdgeHandle(uuid4().toString())
         driver.transaction {
@@ -167,7 +173,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return Edge(handle, fieldMap)
     }
 
-    override fun <S : Schema> createEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>? {
+    override suspend fun <S : Schema> createEdge(
+        handle: EdgeHandle,
+        fieldMap: FieldMap<S>
+    ): Edge<S>? {
         val id = uuid4()
         val ok = driver.transactionWithRollback {
             createElement(fieldMap, id, handle, ElementType.Edge)
@@ -180,11 +189,14 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> createEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>? {
+    override suspend fun <S : Schema> createEdge(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Edge<S>? {
         return createEdge(EdgeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema> createOrReplaceEdge(
+    override suspend fun <S : Schema> createOrReplaceEdge(
         handle: EdgeHandle,
         fieldMap: FieldMap<S>
     ): Edge<S> {
@@ -203,32 +215,37 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> createOrReplaceEdge(
+    override suspend fun <S : Schema> createOrReplaceEdge(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Edge<S> {
         return createOrReplaceEdge(EdgeHandle(handleValue), fieldMap)
     }
 
-    override fun deleteEdge(handle: EdgeHandle, withConnections: Boolean): Boolean {
+    override suspend fun deleteEdge(handle: EdgeHandle, withConnections: Boolean): Boolean {
         return deleteElementByHandle(handle, withConnections)
     }
 
-    override fun deleteEdge(handleValue: String, withConnections: Boolean): Boolean {
+    override suspend fun deleteEdge(handleValue: String, withConnections: Boolean): Boolean {
         return deleteEdge(EdgeHandle(handleValue), withConnections)
     }
 
-    override fun findEdgeSchema(handle: EdgeHandle): Schema? {
-        return findElementSchema(handle)
+    override suspend fun findEdgeSchema(handle: EdgeHandle): Schema? {
+        return driver.transaction {
+            findElementSchema(handle)
+        }
     }
 
-    override fun findEdgeSchema(handleValue: String): Schema? {
+    override suspend fun findEdgeSchema(handleValue: String): Schema? {
         return findEdgeSchema(EdgeHandle(handleValue))
     }
 
-    override fun <S : Schema> getOrCreateEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
+    override suspend fun <S : Schema> getOrCreateEdge(
+        handle: EdgeHandle,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
         return driver.transaction {
-            findElement(handle, fieldMap.schema(), ::Edge) ?: run {
+            findElement(handle, ElementType.Edge, fieldMap.schema(), ::Edge) ?: run {
                 val id = uuid4()
                 createElement(fieldMap, id, handle, ElementType.Edge)
                 Edge(handle, fieldMap)
@@ -236,22 +253,28 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> getOrCreateEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S> {
+    override suspend fun <S : Schema> getOrCreateEdge(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
         return getOrCreateEdge(EdgeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema, T> updateEdgeField(
+    override suspend fun <S : Schema, T> updateEdgeField(
         edge: Edge<S>,
         field: Field<S, T>,
         value: T
     ): Edge<S> {
         return driver.transaction {
             updateFieldValue(edge.handle, edge.fieldMap.schema(), field, value)
-            findElement(edge.handle, edge.fieldMap.schema(), ::Edge)!!
+            findElement(edge.handle, ElementType.Edge, edge.fieldMap.schema(), ::Edge)!!
         }
     }
 
-    override fun <S : Schema> updateEdgeFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S> {
+    override suspend fun <S : Schema> updateEdgeFields(
+        edge: Edge<*>,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
         return driver.transaction {
             updateFieldValues(
                 edge.handle,
@@ -262,7 +285,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateEdgeFields(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S> {
+    override suspend fun <S : Schema> updateEdgeFields(
+        handle: EdgeHandle,
+        fieldMap: FieldMap<S>
+    ): Edge<S> {
         return driver.transaction {
             val schema = findElementSchema(handle) ?: error("Could not find schema for $handle")
             updateFieldValues(
@@ -274,14 +300,14 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateEdgeFields(
+    override suspend fun <S : Schema> updateEdgeFields(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Edge<S> {
         return updateEdgeFields(EdgeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S> {
+    override suspend fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S> {
         val id = uuid4()
         val handle = NodeHandle(uuid4().toString())
         driver.transaction {
@@ -290,7 +316,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return Node(handle, fieldMap)
     }
 
-    override fun <S : Schema> createNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>? {
+    override suspend fun <S : Schema> createNode(
+        handle: NodeHandle,
+        fieldMap: FieldMap<S>
+    ): Node<S>? {
         val id = uuid4()
         val ok = driver.transactionWithRollback {
             createElement(fieldMap, id, handle, ElementType.Node)
@@ -303,11 +332,14 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> createNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>? {
+    override suspend fun <S : Schema> createNode(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Node<S>? {
         return createNode(NodeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema> createOrReplaceNode(
+    override suspend fun <S : Schema> createOrReplaceNode(
         handle: NodeHandle,
         fieldMap: FieldMap<S>
     ): Node<S> {
@@ -326,32 +358,37 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> createOrReplaceNode(
+    override suspend fun <S : Schema> createOrReplaceNode(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Node<S> {
         return createOrReplaceNode(NodeHandle(handleValue), fieldMap)
     }
 
-    override fun deleteNode(handle: NodeHandle, withConnections: Boolean): Boolean {
+    override suspend fun deleteNode(handle: NodeHandle, withConnections: Boolean): Boolean {
         return deleteElementByHandle(handle, withConnections)
     }
 
-    override fun deleteNode(handleValue: String, withConnections: Boolean): Boolean {
+    override suspend fun deleteNode(handleValue: String, withConnections: Boolean): Boolean {
         return deleteNode(NodeHandle(handleValue), withConnections)
     }
 
-    override fun findNodeSchema(handle: NodeHandle): Schema? {
-        return findElementSchema(handle)
+    override suspend fun findNodeSchema(handle: NodeHandle): Schema? {
+        return driver.transaction {
+            findElementSchema(handle)
+        }
     }
 
-    override fun findNodeSchema(handleValue: String): Schema? {
+    override suspend fun findNodeSchema(handleValue: String): Schema? {
         return findNodeSchema(NodeHandle(handleValue))
     }
 
-    override fun <S : Schema> getOrCreateNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
+    override suspend fun <S : Schema> getOrCreateNode(
+        handle: NodeHandle,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
         return driver.transaction {
-            findElement(handle, fieldMap.schema(), ::Node) ?: run {
+            findElement(handle, ElementType.Node, fieldMap.schema(), ::Node) ?: run {
                 val id = uuid4()
                 createElement(fieldMap, id, handle, ElementType.Node)
                 Node(handle, fieldMap)
@@ -359,22 +396,28 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> getOrCreateNode(handleValue: String, fieldMap: FieldMap<S>): Node<S> {
+    override suspend fun <S : Schema> getOrCreateNode(
+        handleValue: String,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
         return getOrCreateNode(NodeHandle(handleValue), fieldMap)
     }
 
-    override fun <S : Schema, T> updateEdgeField(
+    override suspend fun <S : Schema, T> updateEdgeField(
         node: Node<S>,
         field: Field<S, T>,
         value: T
     ): Node<S> {
         return driver.transaction {
             updateFieldValue(node.handle, node.fieldMap.schema(), field, value)
-            findElement(node.handle, node.fieldMap.schema(), ::Node)!!
+            findElement(node.handle, ElementType.Node, node.fieldMap.schema(), ::Node)!!
         }
     }
 
-    override fun <S : Schema> updateNodeFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S> {
+    override suspend fun <S : Schema> updateNodeFields(
+        node: Node<*>,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
         return driver.transaction {
             updateFieldValues(
                 node.handle,
@@ -385,7 +428,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateNodeFields(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S> {
+    override suspend fun <S : Schema> updateNodeFields(
+        handle: NodeHandle,
+        fieldMap: FieldMap<S>
+    ): Node<S> {
         return driver.transaction {
             val schema = findElementSchema(handle) ?: error("Could not find schema for $handle")
             updateFieldValues(
@@ -397,46 +443,40 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    override fun <S : Schema> updateNodeFields(
+    override suspend fun <S : Schema> updateNodeFields(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Node<S> {
         return updateNodeFields(NodeHandle(handleValue), fieldMap)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun <S : Schema> query(match: EdgeMatch<S>): Flow<Edge<S>> {
-        return flow {
-            driver.beginTransaction()
-            try {
+        return channelFlow {
+            driver.transaction {
                 val (schema, idToHandleValueFlow) = performQuery(match)
                 idToHandleValueFlow.collect { handle ->
                     val fieldMap = getFieldMap(handle, schema)
-                    emit(Edge(EdgeHandle(handle.value), fieldMap))
+                    send(Edge(EdgeHandle(handle.value), fieldMap))
                 }
-                driver.setTransactionSuccessful()
-            } finally {
-                driver.endTransaction()
             }
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun <S : Schema> query(match: NodeMatch<S>): Flow<Node<S>> {
-        return flow {
-            driver.beginTransaction()
-            try {
+        return channelFlow {
+            driver.transaction {
                 val (schema, idToHandleValueSeq) = performQuery(match)
                 idToHandleValueSeq.collect { handle ->
                     val fieldMap = getFieldMap(handle, schema)
-                    emit(Node(NodeHandle(handle.value), fieldMap))
+                    send(Node(NodeHandle(handle.value), fieldMap))
                 }
-                driver.setTransactionSuccessful()
-            } finally {
-                driver.endTransaction()
             }
         }
     }
 
-    override fun <T> transaction(fn: GraphLiteDatabase.() -> T): T {
+    override suspend fun <T> transaction(fn: suspend GraphLiteDatabase.() -> T): T {
         return driver.transaction {
             fn(this)
         }
@@ -483,7 +523,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun deleteElementByHandle(handle: ElementHandle, withConnections: Boolean): Boolean {
+    private suspend fun deleteElementByHandle(
+        handle: ElementHandle,
+        withConnections: Boolean
+    ): Boolean {
         return driver.transaction {
             if (withConnections) deleteElementConnections(handle)
             driver.delete("Element", "handle = ?", arrayOf(handle.value))
@@ -517,34 +560,41 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
     private fun <T : GraphElement<S>, S : Schema, H : ElementHandle> findElement(
         handle: H,
+        elementType: ElementType,
         schema: S,
         elementFactory: (H, FieldMap<S>) -> T
     ): T? {
-        val fieldMap = getFieldMap(handle, schema)
-        return elementFactory(handle, fieldMap)
+        driver.query("SELECT type FROM Element WHERE handle = ?", arrayOf(handle.value)).use {
+            if (!it.moveToNext()) {
+                return null
+            }
+            if (it.getString("type") != elementType.code) {
+                return null
+            }
+            val fieldMap = getFieldMap(handle, schema)
+            return elementFactory(handle, fieldMap)
+        }
     }
 
     private fun findElementSchema(handle: ElementHandle): Schema? {
-        return driver.transaction {
-            val (schemaId, schema) = driver.query(
-                "SELECT id, handle, version FROM Schema WHERE id = (SELECT schemaId FROM Element WHERE handle = ?)",
-                arrayOf(handle.value)
-            ).use {
-                if (it.moveToNext()) {
-                    val id = it.getString("id")
-                    val handleValue = it.getString("handle")
-                    val version = it.getLong("version")
-                    Pair(id, object : Schema(SchemaHandle(handleValue), version) {})
-                } else {
-                    return@transaction null
-                }
+        val (schemaId, schema) = driver.query(
+            "SELECT id, handle, version FROM Schema WHERE id = (SELECT schemaId FROM Element WHERE handle = ?)",
+            arrayOf(handle.value)
+        ).use {
+            if (it.moveToNext()) {
+                val id = it.getString("id")
+                val handleValue = it.getString("handle")
+                val version = it.getLong("version")
+                Pair(id, object : Schema(SchemaHandle(handleValue), version) {})
+            } else {
+                return null
             }
-            getSchemaFields(driver, schemaId).forEach {
-                schema.addField(it)
-            }
-            schema.freeze()
-            schema
         }
+        getSchemaFields(driver, schemaId).forEach {
+            schema.addField(it)
+        }
+        schema.freeze()
+        return schema
     }
 
     private fun <S : Schema> getFieldMap(

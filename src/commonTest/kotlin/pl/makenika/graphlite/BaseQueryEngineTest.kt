@@ -435,7 +435,7 @@ abstract class BaseQueryEngineTest {
     @Test
     fun deleteWhileQuerying() = blocking {
         for (c in 'a'..'y') {
-            val node = tested.createNode(PersonV1 { it[name] = c.toString() })
+            tested.createNode(PersonV1 { it[name] = c.toString() })
         }
         val nodeZ = tested.createNode(PersonV1 { it[name] = "z" })
 

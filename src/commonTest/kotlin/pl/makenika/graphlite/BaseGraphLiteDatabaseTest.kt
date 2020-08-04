@@ -44,27 +44,27 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createNodeWithName() {
+    fun createNodeWithName() = blocking {
         val node = tested.createNode("test", PersonV1 { it[name] = "Alice" })
         assertNotNull(node)
         assertEquals("Alice", node { name })
     }
 
     @Test
-    fun getOrCreateExistingNode() {
+    fun getOrCreateExistingNode() = blocking {
         val a = tested.createNode("test", PersonV1 { it[name] = "Jane" })
         val b = tested.getOrCreateNode("test", PersonV1 { it[name] = "Joe" })
         assertEquals(a, b)
     }
 
     @Test
-    fun getOrCreateMissingNode() {
+    fun getOrCreateMissingNode() = blocking {
         val a = tested.getOrCreateNode("test", PersonV1 { it[name] = "Joe" })
         assertEquals("Joe", a[PersonV1.name])
     }
 
     @Test
-    fun createDuplicateNode() {
+    fun createDuplicateNode() = blocking {
         val fieldMap = PersonV1 { it[name] = "John Doe" }
         val a = tested.createNode("test", fieldMap)
         assertNotNull(a)
@@ -74,7 +74,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createDuplicateNodeWithDifferentSchema() {
+    fun createDuplicateNodeWithDifferentSchema() = blocking {
         val a = tested.createNode("test", PersonV1 { it[name] = "John Doe" })
         assertNotNull(a)
 
@@ -101,7 +101,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun createOrReplaceMaintainsConnections() {
+    fun createOrReplaceMaintainsConnections() = blocking {
         val a = tested.createEdge("edge", Likes {})!!
         val b = tested.createNode("node", Tree { it[name] = "a" })!!
         tested.connect(a.handle, b.handle)
@@ -132,7 +132,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun connectWithMissingEdge() {
+    fun connectWithMissingEdge() = blocking {
         val node = tested.createNode(PersonV1 { it[name] = "test" })
         assertThrows<RollbackException> {
             tested.connect(EdgeHandle(uuid4().toString()), node.handle, null)
@@ -140,7 +140,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun connectWithMissingNode() {
+    fun connectWithMissingNode() = blocking {
         val edge = tested.createEdge(Likes())
         assertThrows<RollbackException> {
             tested.connect(edge.handle, NodeHandle(uuid4().toString()), null)
@@ -148,7 +148,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun connectTwice() {
+    fun connectTwice() = blocking {
         val edge = tested.createEdge(Likes())
         val node = tested.createNode(Tree {})
         tested.connect(edge.handle, node.handle, null)
@@ -158,7 +158,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun connectOrReplace() {
+    fun connectOrReplace() = blocking {
         val edge = tested.createEdge(Likes())
         val node = tested.createNode(Tree {})
 
@@ -178,7 +178,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun getOrConnect() {
+    fun getOrConnect() = blocking {
         val edge = tested.createEdge(Likes())
         val node = tested.createNode(Tree {})
 
@@ -212,14 +212,14 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun disconnectUnrelatedElements() {
+    fun disconnectUnrelatedElements() = blocking {
         val e = tested.createEdge(Likes())
         val n = tested.createNode(Tree())
         assertFalse(tested.disconnect(e.handle, n.handle))
     }
 
     @Test
-    fun disconnectElements() {
+    fun disconnectElements() = blocking {
         val e = tested.createEdge(Likes())
         val n = tested.createNode(Tree())
         val connection = tested.connect(e.handle, n.handle)
@@ -230,22 +230,22 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun updateFieldValue() {
+    fun updateFieldValue() = blocking {
         val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
         val updated = tested.updateEdgeField(node, PersonV1.name, "John F. Doe")
         assertEquals("John F. Doe", updated[PersonV1.name])
     }
 
     @Test
-    fun updateNonExistentNode() {
+    fun updateNonExistentNode() = blocking {
         val node = Node(NodeHandle("test"), PersonV1 { it[name] = "John Doe" })
-        assertThrows<IllegalStateException> {
+        assertThrows<RollbackException> {
             tested.updateEdgeField(node, PersonV1.name, "test value")
         }
     }
 
     @Test
-    fun updateFieldValues() {
+    fun updateFieldValues() = blocking {
         val node = tested.createNode(Tree { it[name] = "Oak"; it[secret] = byteArrayOf(0x7, 0x9) })
         val updated = tested.updateNodeFields(node, node.edit { it[age] = 102; it[secret] = null })
         assertEquals("Oak", updated[Tree.name])
@@ -256,7 +256,7 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun updateFieldValuesByHandle() {
+    fun updateFieldValuesByHandle() = blocking {
         val node = tested.createNode(Tree { it[name] = "Oak"; it[secret] = byteArrayOf(0x7, 0x9) })
         val updated =
             tested.updateNodeFields(node.handle, node.edit { it[age] = 102; it[secret] = null })
@@ -318,13 +318,13 @@ abstract class BaseGraphLiteDatabaseTest {
     }
 
     @Test
-    fun findSchemaForMissingElement() {
+    fun findSchemaForMissingElement() = blocking {
         assertNull(tested.findEdgeSchema(EdgeHandle(uuid4().toString())))
         assertNull(tested.findNodeSchema(NodeHandle(uuid4().toString())))
     }
 
     @Test
-    fun getSchema() {
+    fun getSchema() = blocking {
         val a = tested.createNode(Tree { it[name] = "Oak" })
         val s = tested.findNodeSchema(a.handle)
         assertEquals(Tree, s)

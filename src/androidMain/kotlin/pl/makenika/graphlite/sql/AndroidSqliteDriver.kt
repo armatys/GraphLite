@@ -23,7 +23,7 @@ import org.sqlite.database.sqlite.SQLiteDatabase
 import org.sqlite.database.sqlite.SQLiteOpenHelper
 import java.lang.StringBuilder
 
-class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : SqliteDriver {
+class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : SqliteDriver() {
     override fun beginTransaction() = db.beginTransaction()
 
     override fun endTransaction() = db.endTransaction()

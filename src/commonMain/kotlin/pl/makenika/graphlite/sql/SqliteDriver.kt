@@ -16,9 +16,15 @@
 
 package pl.makenika.graphlite.sql
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import pl.makenika.graphlite.use
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.coroutineContext
 
-interface SqliteDriver {
+abstract class SqliteDriver {
     fun getDbVersion(): Long? {
         if (!isInitialized()) {
             return null
@@ -51,41 +57,70 @@ interface SqliteDriver {
         execute("update $VERSION_TABLE set $VERSION_COL = $version")
     }
 
-    fun close()
+    abstract fun close()
 
-    fun beginTransaction()
-    fun endTransaction()
-    fun setTransactionSuccessful()
+    protected abstract fun beginTransaction()
+    protected abstract fun endTransaction()
+    protected abstract fun setTransactionSuccessful()
 
-    fun <T> transaction(fn: () -> T): T {
-        beginTransaction()
-        try {
-            val result = fn()
-            setTransactionSuccessful()
-            return result
-        } finally {
-            endTransaction()
+    private val transactionMutex = Mutex(false)
+
+    private class TransactionContext : AbstractCoroutineContextElement(TransactionContext) {
+        companion object Key : CoroutineContext.Key<TransactionContext>
+    }
+
+    suspend fun <T> transaction(fn: suspend () -> T): T {
+        val inTransaction = coroutineContext[TransactionContext] != null
+        return if (inTransaction) {
+            fn()
+        } else {
+            withContext(TransactionContext()) {
+                transactionMutex.withLock {
+                    beginTransaction()
+                    try {
+                        val result = fn()
+                        setTransactionSuccessful()
+                        result
+                    } finally {
+                        endTransaction()
+                    }
+                }
+            }
         }
     }
 
-    fun <T> transactionWithRollback(fn: () -> T): TransactionResult<T> {
-        beginTransaction()
-        return try {
-            val result = fn()
-            setTransactionSuccessful()
-            TransactionResult.Ok(result)
-        } catch (e: RollbackException) {
-            TransactionResult.Fail(e)
-        } finally {
-            endTransaction()
+    suspend fun <T> transactionWithRollback(fn: () -> T): TransactionResult<T> {
+        val inTransaction = coroutineContext[TransactionContext] != null
+        return if (inTransaction) {
+            TransactionResult.Ok(fn())
+        } else {
+            withContext(TransactionContext()) {
+                transactionMutex.withLock {
+                    beginTransaction()
+                    try {
+                        val result = fn()
+                        setTransactionSuccessful()
+                        TransactionResult.Ok(result)
+                    } catch (e: RollbackException) {
+                        TransactionResult.Fail(e)
+                    } finally {
+                        endTransaction()
+                    }
+                }
+            }
         }
     }
 
-    fun delete(table: String, whereClause: String, whereArgs: Array<String>): Boolean
-    fun execute(sql: String)
-    fun insertOrAbortAndThrow(table: String, values: SqlContentValues)
-    fun query(sql: String, selectionArgs: Array<String>? = null): SqliteCursorFacade
-    fun updateOrReplace(table: String, values: SqlContentValues, whereClause: String, whereArgs: Array<String>)
+    abstract fun delete(table: String, whereClause: String, whereArgs: Array<String>): Boolean
+    abstract fun execute(sql: String)
+    abstract fun insertOrAbortAndThrow(table: String, values: SqlContentValues)
+    abstract fun query(sql: String, selectionArgs: Array<String>? = null): SqliteCursorFacade
+    abstract fun updateOrReplace(
+        table: String,
+        values: SqlContentValues,
+        whereClause: String,
+        whereArgs: Array<String>
+    )
 
     companion object {
         private const val VERSION_TABLE = "_SqlDriverSchemaVersion"

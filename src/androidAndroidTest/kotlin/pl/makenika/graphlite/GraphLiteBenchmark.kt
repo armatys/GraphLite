@@ -39,8 +39,10 @@ class GraphLiteBenchmark {
 
     @Test
     fun insertPeople() = benchmarkRule.measureRepeated {
-        val personName = Random.nextInt().toString()
-        tested.createNode(PersonV1 { it[name] = personName })
+        runBlocking {
+            val personName = Random.nextInt().toString()
+            tested.createNode(PersonV1 { it[name] = personName })
+        }
     }
 
     @Test
@@ -55,7 +57,9 @@ class GraphLiteBenchmark {
 
     @Test
     fun loadNode() {
-        val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
+        val node = runBlocking {
+            tested.createNode(PersonV1 { it[name] = "John Doe" })
+        }
         benchmarkRule.measureRepeated {
             runBlocking { tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first() }
         }
@@ -64,8 +68,10 @@ class GraphLiteBenchmark {
     @Test
     fun deleteByName() {
         benchmarkRule.measureRepeated {
-            val i = Random.nextInt()
-            tested.deleteNode(NodeHandle("$i"))
+            runBlocking {
+                val i = Random.nextInt()
+                tested.deleteNode(NodeHandle("$i"))
+            }
         }
     }
 }

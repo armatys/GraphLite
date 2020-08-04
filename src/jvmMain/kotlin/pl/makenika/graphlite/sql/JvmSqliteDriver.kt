@@ -21,11 +21,9 @@ import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.Types
-import java.util.concurrent.atomic.AtomicInteger
 
-class JvmSqliteDriver private constructor(private val connection: Connection) : SqliteDriver {
-    private val transactions = AtomicInteger(0)
-    private val successful = AtomicInteger(0)
+class JvmSqliteDriver private constructor(private val connection: Connection) : SqliteDriver() {
+    private var isSuccessful = false
 
     init {
         connection.autoCommit = true
@@ -37,28 +35,22 @@ class JvmSqliteDriver private constructor(private val connection: Connection) : 
     }
 
     override fun beginTransaction() {
-        if (transactions.getAndIncrement() == 0) {
-            connection.autoCommit = false
-            successful.set(0)
-        }
-        successful.incrementAndGet()
+        isSuccessful = false
+        connection.autoCommit = false
     }
 
     override fun endTransaction() {
-        val transactionCount = transactions.decrementAndGet()
-        if (transactionCount == 0) {
-            if (successful.get() != transactionCount) {
-                connection.rollback()
-                transactions.set(0)
-            } else {
-                connection.commit()
-            }
-            connection.autoCommit = true
+        if (isSuccessful) {
+            connection.commit()
+        } else {
+            connection.rollback()
         }
+        connection.autoCommit = true
+        isSuccessful = false
     }
 
     override fun setTransactionSuccessful() {
-        successful.decrementAndGet()
+        isSuccessful = true
     }
 
     override fun delete(table: String, whereClause: String, whereArgs: Array<String>): Boolean {
