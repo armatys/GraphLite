@@ -1,7 +1,11 @@
 package pl.makenika.graphlite
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import pl.makenika.graphlite.sql.SqliteDriver
 import kotlin.test.*
 
@@ -428,5 +432,23 @@ abstract class BaseQueryEngineTest {
         assertEquals(listOf<Long>(2, 5, 13), trees.map { it { age } })
     }
 
-    // TODO test using "EXPLAIN QUERY PLAN"
+    @Test
+    fun deleteWhileQuerying() = blocking {
+        for (c in 'a'..'y') {
+            val node = tested.createNode(PersonV1 { it[name] = c.toString() })
+        }
+        val nodeZ = tested.createNode(PersonV1 { it[name] = "z" })
+
+        coroutineScope {
+            launch {
+                tested.query(NodeMatch(PersonV1, order = Order.asc(PersonV1.name))).collect {
+                    yield()
+                }
+            }
+
+            launch {
+                tested.deleteNode(nodeZ.handle)
+            }
+        }
+    }
 }

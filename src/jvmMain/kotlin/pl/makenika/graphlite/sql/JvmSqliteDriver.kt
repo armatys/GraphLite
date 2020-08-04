@@ -50,7 +50,6 @@ class JvmSqliteDriver private constructor(private val connection: Connection) : 
             if (successful.get() != transactionCount) {
                 connection.rollback()
                 transactions.set(0)
-                connection.autoCommit = true
             } else {
                 connection.commit()
             }

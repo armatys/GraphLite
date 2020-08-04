@@ -80,9 +80,9 @@ fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean): Array<
         """
         create table if not exists $tableName (
           id varchar primary key not null,
-          elementId varchar not null unique,
+          elementHandle varchar not null unique,
           value blob $notNull,
-          foreign key (elementId) references Element (id) on delete cascade
+          foreign key (elementHandle) references Element (handle) on delete cascade
         );"""
     )
 }
@@ -96,9 +96,9 @@ fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Boolean): Arr
         """
         create table if not exists $tableName (
           id varchar primary key not null,
-          elementId varchar not null unique,
+          elementHandle varchar not null unique,
           value integer $notNull,
-          foreign key (elementId) references Element (id) on delete cascade
+          foreign key (elementHandle) references Element (handle) on delete cascade
         );""",
 
         "create index if not exists fieldValueIntegerIndex_$safeFieldId on $tableName (value)"
@@ -114,9 +114,9 @@ fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean):
         """
         create table if not exists $tableName (
           id varchar primary key not null,
-          elementId varchar not null unique,
+          elementHandle varchar not null unique,
           value real $notNull,
-          foreign key (elementId) references Element (id) on delete cascade
+          foreign key (elementHandle) references Element (handle) on delete cascade
         );""",
 
         "create index if not exists fieldValueRealIndex_$safeFieldId on $tableName (value)"
@@ -164,9 +164,9 @@ fun createTableFieldValueText(
         """
         create table if not exists $tableName (
           id varchar primary key not null,
-          elementId varchar not null unique,
+          elementHandle varchar not null unique,
           value text $notNull,
-          foreign key (elementId) references Element (id) on delete cascade
+          foreign key (elementHandle) references Element (handle) on delete cascade
         );""",
 
         "create index if not exists fieldValueTextIndex_$safeFieldId on $tableName (value)"
@@ -183,12 +183,12 @@ fun createTableFieldValueGeo(fieldId: String, isValueOptional: Boolean): Array<S
         """
         create table if not exists $tableName (
           id varchar primary key not null,
-          elementId varchar not null unique,
+          elementHandle varchar not null unique,
           minLat real $notNull,
           maxLat real $notNull,
           minLon real $notNull,
           maxLon real $notNull,
-          foreign key (elementId) references Element (id) on delete cascade
+          foreign key (elementHandle) references Element (handle) on delete cascade
         );""",
 
         "create index if not exists fieldValueGeoIndex_$safeFieldId on $tableName (minLat, maxLat, minLon, maxLon)",

@@ -23,26 +23,25 @@ import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
 import pl.makenika.graphlite.sql.*
 
 internal class QueryEngine(private val driver: SqliteDriver) {
-    fun <S : Schema> performQuery(match: ElementMatchImpl<S>): Pair<S, Flow<Pair<String, String>>> {
+    fun <S : Schema> performQuery(match: ElementMatchImpl<S>): Pair<S, Flow<ElementHandle>> {
         val querySpec = performQueryMatch(match)
         val query = buildSelect(
-            "SELECT Element.id, Element.handle FROM Element",
+            "SELECT Element.handle FROM Element",
             join = querySpec.join,
             where = querySpec.where,
             orderBy = querySpec.orderBy
         )
 
-        val idToHandleValueFlow: Flow<Pair<String, String>> = flow {
+        val handleFlow: Flow<ElementHandle> = flow {
             driver.query(query, querySpec.whereBindings.toTypedArray())
                 .use { cursor ->
                     while (cursor.moveToNext()) {
-                        val id = cursor.getString("id")
-                        val handle = cursor.getString("handle")
-                        emit(id to handle)
+                        val handleValue = cursor.getString("handle")
+                        emit(ElementHandle(handleValue))
                     }
                 }
         }
-        return querySpec.schema to idToHandleValueFlow
+        return querySpec.schema to handleFlow
     }
 
     private fun <S : Schema> performQueryMatch(match: ElementMatch<S>): SqlQuerySpec<S> {
@@ -324,7 +323,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE value BETWEEN ? AND ?)",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE value BETWEEN ? AND ?)",
             listOf(where.start.toString(), where.end.toString())
         )
     }
@@ -340,12 +339,12 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         return if (value is GeoBounds?) {
             if (value == null) {
                 Pair(
-                    "Element.id IN (SELECT elementId FROM $valueTableName WHERE minLat IS NULL)",
+                    "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE minLat IS NULL)",
                     emptyList()
                 )
             } else {
                 Pair(
-                    "Element.id IN (SELECT elementId FROM $valueTableName WHERE minLat = ? AND maxLat = ? AND minLon = ? AND maxLon = ?)",
+                    "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE minLat = ? AND maxLat = ? AND minLon = ? AND maxLon = ?)",
                     listOf(
                         value.minLat.toString(),
                         value.maxLat.toString(),
@@ -357,12 +356,12 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         } else {
             if (value == null) {
                 Pair(
-                    "Element.id IN (SELECT elementId FROM $valueTableName WHERE value IS NULL)",
+                    "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE value IS NULL)",
                     emptyList()
                 )
             } else {
                 Pair(
-                    "Element.id IN (SELECT elementId FROM $valueTableName WHERE value = ?)",
+                    "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE value = ?)",
                     listOf(value.toString())
                 )
             }
@@ -377,7 +376,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val valueTableName = getFieldValueTableName(fieldId)
         val ftsTableName = getFtsTableName(fieldId)
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE rowid IN (SELECT rowid FROM $ftsTableName WHERE value MATCH ?))",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE rowid IN (SELECT rowid FROM $ftsTableName WHERE value MATCH ?))",
             listOf(where.value)
         )
     }
@@ -389,7 +388,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE value > ?)",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE value > ?)",
             listOf(where.value.toString())
         )
     }
@@ -402,7 +401,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val valueTableName = getFieldValueTableName(fieldId)
         val geoTableName = getRTreeTableName(fieldId)
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE rowid IN (SELECT rowid FROM $geoTableName WHERE minLat >= ? AND maxLat <= ? AND minLon >= ? AND maxLon <= ?))",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE rowid IN (SELECT rowid FROM $geoTableName WHERE minLat >= ? AND maxLat <= ? AND minLon >= ? AND maxLon <= ?))",
             listOf(
                 where.value.minLat.toString(),
                 where.value.maxLat.toString(),
@@ -419,7 +418,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val fieldId = getFieldId(driver, where.field, schema)
         val valueTableName = getFieldValueTableName(fieldId)
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE value < ?)",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE value < ?)",
             listOf(where.value.toString())
         )
     }
@@ -448,7 +447,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val valueTableName = getFieldValueTableName(fieldId)
         val geoTableName = getRTreeTableName(fieldId)
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE rowid IN (SELECT rowid FROM $geoTableName WHERE minLat <= ? AND maxLat >= ? AND minLon <= ? AND maxLon >= ?))",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE rowid IN (SELECT rowid FROM $geoTableName WHERE minLat <= ? AND maxLat >= ? AND minLon <= ? AND maxLon >= ?))",
             listOf(
                 where.value.maxLat.toString(),
                 where.value.minLat.toString(),
@@ -466,7 +465,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val valueTableName = getFieldValueTableName(fieldId)
         val placeholders = where.values.joinToString(", ") { "?" }
         return Pair(
-            "Element.id IN (SELECT elementId FROM $valueTableName WHERE value IN ($placeholders))",
+            "Element.handle IN (SELECT elementHandle FROM $valueTableName WHERE value IN ($placeholders))",
             where.values.map { it.toString() }
         )
     }
@@ -490,7 +489,7 @@ internal class QueryEngine(private val driver: SqliteDriver) {
         val fieldId = getFieldId(driver, field, schema)
         val tableName = getFieldValueTableName(fieldId)
         val columnName = "value"
-        val join = "$tableName ON $tableName.elementId = Element.id"
+        val join = "$tableName ON $tableName.elementHandle = Element.handle"
         val orderBy = "$tableName.$columnName $orderOperator"
         return Pair(join, orderBy)
     }

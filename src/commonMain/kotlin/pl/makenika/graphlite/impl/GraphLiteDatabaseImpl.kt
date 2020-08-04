@@ -19,8 +19,8 @@ package pl.makenika.graphlite.impl
 import com.benasher44.uuid.Uuid
 import com.benasher44.uuid.uuid4
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
 import pl.makenika.graphlite.*
 import pl.makenika.graphlite.impl.GraphSqlUtils.getElementId
 import pl.makenika.graphlite.impl.GraphSqlUtils.getFieldId
@@ -192,10 +192,9 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return driver.transaction {
             val oldElementId = getElementId(driver, handle)
             if (oldElementId != null) {
-                val oldSchema =
-                    findElementSchema(handle)
-                        ?: error("Could not find schema for edge handle=$handle")
-                deleteFieldValues(oldElementId, oldSchema)
+                val oldSchema = findElementSchema(handle)
+                    ?: error("Could not find schema for edge handle=$handle")
+                deleteFieldValues(handle, oldSchema)
                 createElement(fieldMap, id, handle, ElementType.Edge, updateOrReplace = true)
             } else {
                 createElement(fieldMap, id, handle, ElementType.Edge)
@@ -247,8 +246,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         value: T
     ): Edge<S> {
         return driver.transaction {
-            val elementId = getElementId(driver, edge.handle)!!
-            updateFieldValue(elementId, edge.fieldMap.schema(), field, value)
+            updateFieldValue(edge.handle, edge.fieldMap.schema(), field, value)
             findElement(edge.handle, edge.fieldMap.schema(), ::Edge)!!
         }
     }
@@ -317,10 +315,9 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return driver.transaction {
             val oldElementId = getElementId(driver, handle)
             if (oldElementId != null) {
-                val oldSchema =
-                    findElementSchema(handle)
-                        ?: error("Could not find schema for node handle=$handle")
-                deleteFieldValues(oldElementId, oldSchema)
+                val oldSchema = findElementSchema(handle)
+                    ?: error("Could not find schema for node handle=$handle")
+                deleteFieldValues(handle, oldSchema)
                 createElement(fieldMap, id, handle, ElementType.Node, updateOrReplace = true)
             } else {
                 createElement(fieldMap, id, handle, ElementType.Node)
@@ -372,9 +369,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         value: T
     ): Node<S> {
         return driver.transaction {
-            val elementId =
-                getElementId(driver, node.handle) ?: error("Node ${node.handle} not found.")
-            updateFieldValue(elementId, node.fieldMap.schema(), field, value)
+            updateFieldValue(node.handle, node.fieldMap.schema(), field, value)
             findElement(node.handle, node.fieldMap.schema(), ::Node)!!
         }
     }
@@ -410,21 +405,33 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     override fun <S : Schema> query(match: EdgeMatch<S>): Flow<Edge<S>> {
-        return driver.transaction {
-            val (schema, idToHandleValueFlow) = performQuery(match)
-            idToHandleValueFlow.map { (id, handleValue) ->
-                val fieldMap = getFieldMap(id, schema)
-                Edge(EdgeHandle(handleValue), fieldMap)
+        return flow {
+            driver.beginTransaction()
+            try {
+                val (schema, idToHandleValueFlow) = performQuery(match)
+                idToHandleValueFlow.collect { handle ->
+                    val fieldMap = getFieldMap(handle, schema)
+                    emit(Edge(EdgeHandle(handle.value), fieldMap))
+                }
+                driver.setTransactionSuccessful()
+            } finally {
+                driver.endTransaction()
             }
         }
     }
 
     override fun <S : Schema> query(match: NodeMatch<S>): Flow<Node<S>> {
-        return driver.transaction {
-            val (schema, idToHandleValueSeq) = performQuery(match)
-            idToHandleValueSeq.map { (id, handleValue) ->
-                val fieldMap = getFieldMap(id, schema)
-                Node(NodeHandle(handleValue), fieldMap)
+        return flow {
+            driver.beginTransaction()
+            try {
+                val (schema, idToHandleValueSeq) = performQuery(match)
+                idToHandleValueSeq.collect { handle ->
+                    val fieldMap = getFieldMap(handle, schema)
+                    emit(Node(NodeHandle(handle.value), fieldMap))
+                }
+                driver.setTransactionSuccessful()
+            } finally {
+                driver.endTransaction()
             }
         }
     }
@@ -469,7 +476,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
             val contentValues = SqlContentValues().apply {
                 put("id", fieldValueId)
-                put("elementId", elementId.toString())
+                put("elementHandle", handle.value)
             }
             fillFieldValue(field.type, value, contentValues)
             driver.insertOrAbortAndThrow(tableName, contentValues)
@@ -477,8 +484,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun deleteElementByHandle(handle: ElementHandle, withConnections: Boolean): Boolean {
-        if (withConnections) deleteElementConnections(handle)
-        return driver.delete("Element", "handle = ?", arrayOf(handle.value))
+        return driver.transaction {
+            if (withConnections) deleteElementConnections(handle)
+            driver.delete("Element", "handle = ?", arrayOf(handle.value))
+        }
     }
 
     private fun deleteElementConnections(handle: ElementHandle) {
@@ -511,14 +520,8 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         schema: S,
         elementFactory: (H, FieldMap<S>) -> T
     ): T? {
-        driver.query("SELECT id FROM Element WHERE handle = ?", arrayOf(handle.value)).use {
-            if (!it.moveToNext()) {
-                return null
-            }
-            val id = it.getString("id")
-            val fieldMap = getFieldMap(id, schema)
-            return elementFactory(handle, fieldMap)
-        }
+        val fieldMap = getFieldMap(handle, schema)
+        return elementFactory(handle, fieldMap)
     }
 
     private fun findElementSchema(handle: ElementHandle): Schema? {
@@ -545,32 +548,32 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun <S : Schema> getFieldMap(
-        elementId: String,
+        elementHandle: ElementHandle,
         schema: S
     ): FieldMap<S> {
         val fields: Collection<Field<S, Any?>> = schema.getFields<S>().values
         val fieldMap = MutableFieldMapImpl(schema)
         for (field in fields) {
-            val value: Any? = getFieldValue(elementId, schema, field)
+            val value: Any? = getFieldValue(elementHandle, schema, field)
             fieldMap[field] = value
         }
         return fieldMap
     }
 
     private fun <S : Schema, T> getFieldValue(
-        elementId: String,
+        elementHandle: ElementHandle,
         schema: S,
         field: Field<S, T>
     ): T {
         val fieldId = getFieldId(driver, field, schema)
         val fieldValueTableName = getFieldValueTableName(fieldId)
         val value: Any? = driver.query(
-            "SELECT * FROM $fieldValueTableName WHERE elementId = ?",
-            arrayOf(elementId)
+            "SELECT * FROM $fieldValueTableName WHERE elementHandle = ?",
+            arrayOf(elementHandle.value)
         ).use { cursor ->
             when {
                 cursor.moveToNext() -> readPlainFieldValue<Any?>(cursor, field.type)
-                else -> error("Missing field value: elementId=$elementId field=$field schema=$schema")
+                else -> error("Missing field value: elementHandle=$elementHandle field=$field schema=$schema")
             }
         }
         @Suppress("UNCHECKED_CAST")
@@ -590,7 +593,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun <S : Schema> performQuery(match: ElementMatch<S>): Pair<S, Flow<Pair<String, String>>> {
+    private fun <S : Schema> performQuery(match: ElementMatch<S>): Pair<S, Flow<ElementHandle>> {
         val m = match as? ElementMatchImpl<S> ?: error("Unknown ElementMatch subclass: $match")
         return queryEngine.performQuery(m)
     }
@@ -658,39 +661,39 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     }
 
     private fun <S : Schema, T> updateFieldValue(
-        elementId: String,
+        elementHandle: ElementHandle,
         schema: S,
         field: Field<S, T>,
         value: T
     ) {
         val fieldId = getFieldId(driver, field, schema)
-        updateFieldValue(elementId, fieldId, field.type, value)
+        updateFieldValue(elementHandle, fieldId, field.type, value)
     }
 
     private fun <S : Schema, T> updateFieldValue(
-        elementId: String,
+        elementHandle: ElementHandle,
         schemaId: String,
         field: Field<S, T>,
         value: T
     ) {
         val fieldId = getFieldId(driver, field, schemaId)
-        updateFieldValue(elementId, fieldId, field.type, value)
+        updateFieldValue(elementHandle, fieldId, field.type, value)
     }
 
     private fun <T> updateFieldValue(
-        elementId: String,
+        elementHandle: ElementHandle,
         fieldId: String,
         fieldType: FieldType,
         value: T
     ) {
         val fieldValueTableName = getFieldValueTableName(fieldId)
 
-        driver.delete(fieldValueTableName, "elementId = ?", arrayOf(elementId))
+        driver.delete(fieldValueTableName, "elementHandle = ?", arrayOf(elementHandle.value))
 
         val fieldValueId = uuid4().toString()
         val contentValues = SqlContentValues().apply {
             put("id", fieldValueId)
-            put("elementId", elementId)
+            put("elementHandle", elementHandle.value)
         }
         fillFieldValue(fieldType, value, contentValues)
         driver.insertOrAbortAndThrow(fieldValueTableName, contentValues)
@@ -700,17 +703,17 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         handle: ElementHandle,
         oldSchema: Schema,
         newFieldMap: FieldMap<S>
-    ): String {
+    ) {
         val newSchema = newFieldMap.schema()
         val newSchemaId = getSchemaId(driver, newSchema)
         val hasNewSchema = oldSchema != newSchema
-        val oldElementId = getElementId(driver, handle)!!
-        val elementId = if (hasNewSchema) uuid4().toString() else oldElementId
 
         if (hasNewSchema) {
-            deleteFieldValues(oldElementId, oldSchema)
+            deleteFieldValues(handle, oldSchema)
             val elementValues = SqlContentValues().apply {
-                put("id", elementId)
+                if (hasNewSchema) {
+                    put("id", uuid4().toString())
+                }
                 put("schemaId", newSchemaId)
             }
             driver.updateOrReplace("Element", elementValues, "handle = ?", arrayOf(handle.value))
@@ -718,17 +721,15 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
         for ((_, field) in newSchema.getFields<S>()) {
             val value = newFieldMap[field]
-            updateFieldValue(elementId, newSchemaId, field, value)
+            updateFieldValue(handle, newSchemaId, field, value)
         }
-
-        return elementId
     }
 
-    private fun deleteFieldValues(elementId: String, schema: Schema) {
+    private fun deleteFieldValues(elementHandle: ElementHandle, schema: Schema) {
         for ((_, field) in schema.getFields<Schema>()) {
             val fieldId = getFieldId(driver, field, schema)
             val tableName = getFieldValueTableName(fieldId)
-            driver.delete(tableName, "elementId = ?", arrayOf(elementId))
+            driver.delete(tableName, "elementHandle = ?", arrayOf(elementHandle.value))
         }
     }
 }
