@@ -21,23 +21,23 @@ import pl.makenika.graphlite.impl.GraphLiteDatabaseImpl
 import pl.makenika.graphlite.impl.GraphSqlUtils.getSchemaFields
 import pl.makenika.graphlite.sql.*
 
-class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
+public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
     private val migrations = LinkedHashMap<SchemaHandle, MutableMap<Long, Migration>>()
     private val registeredSchemas = mutableMapOf<SchemaHandle, Schema>()
     private var shouldDeleteOnSchemaConflict = false
 
-    fun deleteOnSchemaConflict(shouldDelete: Boolean): GraphLiteDatabaseBuilder {
+    public fun deleteOnSchemaConflict(shouldDelete: Boolean): GraphLiteDatabaseBuilder {
         shouldDeleteOnSchemaConflict = shouldDelete
         return this
     }
 
-    fun register(schema: Schema): GraphLiteDatabaseBuilder {
+    public fun register(schema: Schema): GraphLiteDatabaseBuilder {
         schema.freeze()
         check(registeredSchemas.put(schema.schemaHandle, schema) == null)
         return this
     }
 
-    fun <O : Schema, N : Schema> migration(
+    public fun <O : Schema, N : Schema> migration(
         oldSchema: O,
         newSchema: N,
         fn: Migration
@@ -54,7 +54,7 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         return this
     }
 
-    suspend fun open(): GraphLiteDatabase {
+    public suspend fun open(): GraphLiteDatabase {
         val helper = GraphDriverHelper(driver, SQL_SCHEMA_VERSION)
         val db = GraphLiteDatabaseImpl(helper.open())
 
@@ -186,7 +186,7 @@ class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         )
     }
 
-    companion object {
+    internal companion object {
         private const val SQL_SCHEMA_VERSION = 1L
     }
 }

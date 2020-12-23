@@ -17,7 +17,7 @@
 package pl.makenika.graphlite.sql
 
 //language=SQLITE-SQL
-val schemaV1 = arrayOf(
+internal val schemaV1 = arrayOf(
     """create table if not exists Schema (
   id varchar primary key not null,
   handle varchar not null,
@@ -68,11 +68,11 @@ val schemaV1 = arrayOf(
 // id
 // timestamp
 
-fun getFieldValueTableName(fieldId: String): String = "Field_${safeTableName(fieldId)}"
-fun getFtsTableName(fieldId: String): String = "FieldFtsText_${safeTableName(fieldId)}"
-fun getRTreeTableName(fieldId: String): String = "FieldGeo_${safeTableName(fieldId)}_rtree"
+internal fun getFieldValueTableName(fieldId: String): String = "Field_${safeTableName(fieldId)}"
+internal fun getFtsTableName(fieldId: String): String = "FieldFtsText_${safeTableName(fieldId)}"
+internal fun getRTreeTableName(fieldId: String): String = "FieldGeo_${safeTableName(fieldId)}_rtree"
 
-fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean): Array<String> {
+internal fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val tableName = getFieldValueTableName(fieldId)
     //language=SQLITE-SQL
@@ -87,7 +87,7 @@ fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean): Array<
     )
 }
 
-fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Boolean): Array<String> {
+internal fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -105,7 +105,7 @@ fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Boolean): Arr
     )
 }
 
-fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean): Array<String> {
+internal fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -123,7 +123,7 @@ fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean):
     )
 }
 
-fun createTableFieldValueText(
+internal fun createTableFieldValueText(
     fieldId: String,
     isValueOptional: Boolean,
     fts: Boolean
@@ -173,7 +173,7 @@ fun createTableFieldValueText(
     ) + if (fts) ftsStatements else emptyArray()
 }
 
-fun createTableFieldValueGeo(fieldId: String, isValueOptional: Boolean): Array<String> {
+internal fun createTableFieldValueGeo(fieldId: String, isValueOptional: Boolean): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)

@@ -22,7 +22,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.Types
 
-class JvmSqliteDriver private constructor(private val connection: Connection) : SqliteDriver() {
+public class JvmSqliteDriver private constructor(private val connection: Connection) : SqliteDriver() {
     private var isSuccessful = false
 
     init {
@@ -120,13 +120,13 @@ class JvmSqliteDriver private constructor(private val connection: Connection) : 
         stmt.execute()
     }
 
-    companion object {
-        fun newInstance(database: File): JvmSqliteDriver {
+    public companion object {
+        public fun newInstance(database: File): JvmSqliteDriver {
             val connection = DriverManager.getConnection("jdbc:sqlite:${database.absolutePath}")
             return JvmSqliteDriver(connection)
         }
 
-        fun newInstanceInMemory(): JvmSqliteDriver {
+        public fun newInstanceInMemory(): JvmSqliteDriver {
             val connection = DriverManager.getConnection("jdbc:sqlite::memory:")
             return JvmSqliteDriver(connection)
         }

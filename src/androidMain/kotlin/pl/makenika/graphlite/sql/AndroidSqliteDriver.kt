@@ -23,12 +23,12 @@ import org.sqlite.database.sqlite.SQLiteDatabase
 import org.sqlite.database.sqlite.SQLiteOpenHelper
 import java.lang.StringBuilder
 
-class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : SqliteDriver() {
-    override fun beginTransaction() = db.beginTransaction()
+public class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : SqliteDriver() {
+    override fun beginTransaction(): Unit = db.beginTransaction()
 
-    override fun endTransaction() = db.endTransaction()
+    override fun endTransaction(): Unit = db.endTransaction()
 
-    override fun setTransactionSuccessful() = db.setTransactionSuccessful()
+    override fun setTransactionSuccessful(): Unit = db.setTransactionSuccessful()
 
     override fun close() = db.close()
 
@@ -66,12 +66,12 @@ class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : 
         )
     }
 
-    companion object {
+    public companion object {
         init {
             System.loadLibrary("sqliteX")
         }
 
-        fun newInstance(
+        public fun newInstance(
             context: Context,
             dbPath: String,
             password: String? = null
@@ -80,7 +80,7 @@ class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : 
             return AndroidSqliteDriver(sqliteDb)
         }
 
-        fun newInstanceInMemory(context: Context, password: String? = null): AndroidSqliteDriver {
+        public fun newInstanceInMemory(context: Context, password: String? = null): AndroidSqliteDriver {
             val sqliteDb = AndroidOpenHelper(context, null, password).writableDatabase
             return AndroidSqliteDriver(sqliteDb)
         }

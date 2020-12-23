@@ -16,7 +16,7 @@
 
 package pl.makenika.graphlite.sql
 
-sealed class TransactionResult<T> {
+internal sealed class TransactionResult<T> {
     fun getOrDefault(t: T): T {
         return when (this) {
             is Ok -> value

@@ -18,29 +18,29 @@ package pl.makenika.graphlite
 
 import pl.makenika.graphlite.impl.MutableFieldMapImpl
 
-interface FieldMap<S : Schema> {
-    fun contains(field: Field<S, *>): Boolean
-    fun edit(fn: S.(MutableFieldMap<S>) -> Unit): FieldMap<S>
-    operator fun <T> get(field: Field<S, T>): T
-    operator fun <T> invoke(field: S.() -> Field<S, T>): T
-    fun schema(): S
-    fun toMap(): Map<String, Any?>
-    fun toMutableFieldMap(): MutableFieldMap<S>
+public interface FieldMap<S : Schema> {
+    public fun contains(field: Field<S, *>): Boolean
+    public fun edit(fn: S.(MutableFieldMap<S>) -> Unit): FieldMap<S>
+    public operator fun <T> get(field: Field<S, T>): T
+    public operator fun <T> invoke(field: S.() -> Field<S, T>): T
+    public fun schema(): S
+    public fun toMap(): Map<String, Any?>
+    public fun toMutableFieldMap(): MutableFieldMap<S>
 }
 
-interface MutableFieldMap<S : Schema> : FieldMap<S> {
-    operator fun <T> set(field: Field<S, T>, value: T)
+public interface MutableFieldMap<S : Schema> : FieldMap<S> {
+    public operator fun <T> set(field: Field<S, T>, value: T)
 }
 
-class FieldMapBuilder<S : Schema>(private val schema: S) {
+public class FieldMapBuilder<S : Schema>(private val schema: S) {
     private val fieldMap = MutableFieldMapImpl(schema)
 
-    operator fun <T> set(field: Field<S, T>, value: T): FieldMapBuilder<S> {
+    public operator fun <T> set(field: Field<S, T>, value: T): FieldMapBuilder<S> {
         fieldMap[field] = value
         return this
     }
 
-    fun build(): FieldMap<S> {
+    public fun build(): FieldMap<S> {
         for ((_, field) in schema.getFields<S>()) {
             if (!fieldMap.contains(field)) {
                 if (field.type.optional) {

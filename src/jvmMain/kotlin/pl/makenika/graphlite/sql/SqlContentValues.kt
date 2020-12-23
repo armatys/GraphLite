@@ -16,7 +16,7 @@
 
 package pl.makenika.graphlite.sql
 
-sealed class SqlValue {
+internal sealed class SqlValue {
     data class SqlBlob(val value: ByteArray) : SqlValue() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -37,46 +37,46 @@ sealed class SqlValue {
     data class SqlString(val value: String) : SqlValue()
 }
 
-actual class SqlContentValues actual constructor() {
+public actual class SqlContentValues actual constructor() {
     private val keys = mutableSetOf<String>()
     private val byteArrays = mutableMapOf<String, ByteArray>()
     private val doubles = mutableMapOf<String, Double>()
     private val longs = mutableMapOf<String, Long>()
     private val strings = mutableMapOf<String, String>()
 
-    actual fun put(key: String, value: ByteArray?) {
+    internal actual fun put(key: String, value: ByteArray?) {
         if (value != null) {
             byteArrays[key] = value
         }
         keys.add(key)
     }
 
-    actual fun put(key: String, value: Double?) {
+    internal actual fun put(key: String, value: Double?) {
         if (value != null) {
             doubles[key] = value
         }
         keys.add(key)
     }
 
-    actual fun put(key: String, value: Long?) {
+    internal actual fun put(key: String, value: Long?) {
         if (value != null) {
             longs[key] = value
         }
         keys.add(key)
     }
 
-    actual fun put(key: String, value: String?) {
+    internal actual fun put(key: String, value: String?) {
         if (value != null) {
             strings[key] = value
         }
         keys.add(key)
     }
 
-    fun keySet(): Set<String> {
+    internal fun keySet(): Set<String> {
         return keys
     }
 
-    fun get(key: String): SqlValue {
+    internal fun get(key: String): SqlValue {
         byteArrays[key]?.let { return SqlValue.SqlBlob(it) }
         doubles[key]?.let { return SqlValue.SqlReal(it) }
         longs[key]?.let { return SqlValue.SqlLong(it) }

@@ -16,24 +16,24 @@
 
 package pl.makenika.graphlite
 
-class OptionalFieldBuilder<S : Schema> internal constructor(private val schema: S) {
-    fun blobField(name: String): Field<S, ByteArray?> {
+public class OptionalFieldBuilder<S : Schema> internal constructor(private val schema: S) {
+    public fun blobField(name: String): Field<S, ByteArray?> {
         return schema.addField(Field.blobOptional(name))
     }
 
-    fun doubleField(name: String): IndexableScalarField<S, Double?> {
+    public fun doubleField(name: String): IndexableScalarField<S, Double?> {
         return schema.addField(Field.doubleOptional(name))
     }
 
-    fun geoField(name: String): IndexableField<S, GeoBounds?> {
+    public fun geoField(name: String): IndexableField<S, GeoBounds?> {
         return schema.addField(Field.geoOptional(name))
     }
 
-    fun longField(name: String): IndexableScalarField<S, Long?> {
+    public fun longField(name: String): IndexableScalarField<S, Long?> {
         return schema.addField(Field.longOptional(name))
     }
 
-    fun textField(name: String, fts: Boolean = true): IndexableScalarField<S, String?> {
+    public fun textField(name: String, fts: Boolean = true): IndexableScalarField<S, String?> {
         return if (fts) {
             schema.addField(Field.textFtsOptional(name))
         } else {

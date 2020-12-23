@@ -16,9 +16,9 @@
 
 package pl.makenika.graphlite.sql
 
-expect class SqlContentValues() {
-    fun put(key: String, value: ByteArray?)
-    fun put(key: String, value: Double?)
-    fun put(key: String, value: Long?)
-    fun put(key: String, value: String?)
+public expect class SqlContentValues() {
+    internal fun put(key: String, value: ByteArray?)
+    internal fun put(key: String, value: Double?)
+    internal fun put(key: String, value: Long?)
+    internal fun put(key: String, value: String?)
 }

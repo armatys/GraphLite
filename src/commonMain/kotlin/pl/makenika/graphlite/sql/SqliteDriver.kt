@@ -24,8 +24,8 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
 
-abstract class SqliteDriver {
-    fun getDbVersion(): Long? {
+public abstract class SqliteDriver {
+    internal fun getDbVersion(): Long? {
         if (!isInitialized()) {
             return null
         }
@@ -39,25 +39,25 @@ abstract class SqliteDriver {
         }
     }
 
-    fun initialize(version: Long) {
+    internal fun initialize(version: Long) {
         //language=SQLITE-SQL
         execute("create table $VERSION_TABLE (version integer)")
         //language=SQLITE-SQL
         execute("insert into $VERSION_TABLE values ($version)")
     }
 
-    fun isInitialized(): Boolean {
+    private fun isInitialized(): Boolean {
         return query("SELECT name FROM sqlite_master WHERE type='table' AND name='$VERSION_TABLE'").use {
             it.moveToNext()
         }
     }
 
-    fun updateVersion(version: Long) {
+    internal fun updateVersion(version: Long) {
         //language=SQLITE-SQL
         execute("update $VERSION_TABLE set $VERSION_COL = $version")
     }
 
-    abstract fun close()
+    internal abstract fun close()
 
     protected abstract fun beginTransaction()
     protected abstract fun endTransaction()
@@ -69,7 +69,7 @@ abstract class SqliteDriver {
         companion object Key : CoroutineContext.Key<TransactionContext>
     }
 
-    suspend fun <T> transaction(fn: suspend () -> T): T {
+    internal suspend fun <T> transaction(fn: suspend () -> T): T {
         val inTransaction = coroutineContext[TransactionContext] != null
         return if (inTransaction) {
             fn()
@@ -89,7 +89,7 @@ abstract class SqliteDriver {
         }
     }
 
-    suspend fun <T> transactionWithRollback(fn: () -> T): TransactionResult<T> {
+    internal suspend fun <T> transactionWithRollback(fn: () -> T): TransactionResult<T> {
         val inTransaction = coroutineContext[TransactionContext] != null
         return if (inTransaction) {
             TransactionResult.Ok(fn())
@@ -111,18 +111,27 @@ abstract class SqliteDriver {
         }
     }
 
-    abstract fun delete(table: String, whereClause: String, whereArgs: Array<String>): Boolean
-    abstract fun execute(sql: String)
-    abstract fun insertOrAbortAndThrow(table: String, values: SqlContentValues)
-    abstract fun query(sql: String, selectionArgs: Array<String>? = null): SqliteCursorFacade
-    abstract fun updateOrReplace(
+    internal abstract fun delete(
+        table: String,
+        whereClause: String,
+        whereArgs: Array<String>
+    ): Boolean
+
+    internal abstract fun execute(sql: String)
+    internal abstract fun insertOrAbortAndThrow(table: String, values: SqlContentValues)
+    internal abstract fun query(
+        sql: String,
+        selectionArgs: Array<String>? = null
+    ): SqliteCursorFacade
+
+    internal abstract fun updateOrReplace(
         table: String,
         values: SqlContentValues,
         whereClause: String,
         whereArgs: Array<String>
     )
 
-    companion object {
+    internal companion object {
         private const val VERSION_TABLE = "_SqlDriverSchemaVersion"
         private const val VERSION_COL = "version"
     }

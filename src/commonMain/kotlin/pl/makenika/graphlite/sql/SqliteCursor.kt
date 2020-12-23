@@ -18,7 +18,7 @@ package pl.makenika.graphlite.sql
 
 import pl.makenika.graphlite.Cleanable
 
-expect class SqliteCursorFacade : Cleanable {
+internal expect class SqliteCursorFacade : Cleanable {
     fun findBlob(columnName: String): ByteArray?
     fun findDouble(columnName: String): Double?
     fun findLong(columnName: String): Long?
@@ -27,26 +27,26 @@ expect class SqliteCursorFacade : Cleanable {
     fun moveToNext(): Boolean
 }
 
-fun SqliteCursorFacade.findBoolean(columnName: String): Boolean? {
+internal fun SqliteCursorFacade.findBoolean(columnName: String): Boolean? {
     return findLong(columnName)?.let { it == 1L }
 }
 
-fun SqliteCursorFacade.getBoolean(columnName: String): Boolean {
+internal fun SqliteCursorFacade.getBoolean(columnName: String): Boolean {
     return findBoolean(columnName) ?: error("Column $columnName is null.")
 }
 
-fun SqliteCursorFacade.getBlob(columnName: String): ByteArray {
+internal fun SqliteCursorFacade.getBlob(columnName: String): ByteArray {
     return findBlob(columnName) ?: error("Column $columnName is null.")
 }
 
-fun SqliteCursorFacade.getDouble(columnName: String): Double {
+internal fun SqliteCursorFacade.getDouble(columnName: String): Double {
     return findDouble(columnName) ?: error("Column $columnName is null.")
 }
 
-fun SqliteCursorFacade.getLong(columnName: String): Long {
+internal fun SqliteCursorFacade.getLong(columnName: String): Long {
     return findLong(columnName) ?: error("Column $columnName is null.")
 }
 
-fun SqliteCursorFacade.getString(columnName: String): String {
+internal fun SqliteCursorFacade.getString(columnName: String): String {
     return findString(columnName) ?: error("Column $columnName is null.")
 }

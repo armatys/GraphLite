@@ -16,11 +16,11 @@
 
 package pl.makenika.graphlite
 
-expect interface Cleanable {
-    fun close()
+public expect interface Cleanable {
+    public fun close()
 }
 
-inline fun <T : Cleanable?, R> T.use(block: (T) -> R): R {
+internal inline fun <T : Cleanable?, R> T.use(block: (T) -> R): R {
     return try {
         block(this)
     } finally {

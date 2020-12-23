@@ -21,21 +21,21 @@ import pl.makenika.graphlite.impl.NodesBySchema
 import pl.makenika.graphlite.impl.OrderImpl
 import pl.makenika.graphlite.impl.WhereImpl
 
-interface ElementMatch<S : Schema>
+public interface ElementMatch<S : Schema>
 
-interface EdgeMatch<S : Schema> : ElementMatch<S> {
+public interface EdgeMatch<S : Schema> : ElementMatch<S> {
     /** Travels to matching incident nodes. */
-    infix fun <R : Schema> endpoints(match: NodeMatch<R>): NodeMatch<R>
+    public infix fun <R : Schema> endpoints(match: NodeMatch<R>): NodeMatch<R>
 
     /** Travels to matching incident source nodes. */
-    infix fun <R : Schema> sources(match: NodeMatch<R>): NodeMatch<R>
+    public infix fun <R : Schema> sources(match: NodeMatch<R>): NodeMatch<R>
 
     /** Travels to matching incident target nodes. */
-    infix fun <R : Schema> targets(match: NodeMatch<R>): NodeMatch<R>
+    public infix fun <R : Schema> targets(match: NodeMatch<R>): NodeMatch<R>
 }
 
 @Suppress("FunctionName")
-fun <S : Schema> EdgeMatch(
+public fun <S : Schema> EdgeMatch(
     schema: S,
     where: Where<S>? = null,
     order: Order<S>? = null
@@ -43,28 +43,28 @@ fun <S : Schema> EdgeMatch(
     return EdgesBySchema(schema, where, order)
 }
 
-interface NodeMatch<S : Schema> : ElementMatch<S> {
+public interface NodeMatch<S : Schema> : ElementMatch<S> {
     /** Travels via matching incoming edges. */
-    infix fun <R : Schema> incoming(match: EdgeMatch<R>): EdgeMatch<R>
+    public infix fun <R : Schema> incoming(match: EdgeMatch<R>): EdgeMatch<R>
 
     /** Travels via matching outgoing edges. */
-    infix fun <R : Schema> outgoing(match: EdgeMatch<R>): EdgeMatch<R>
+    public infix fun <R : Schema> outgoing(match: EdgeMatch<R>): EdgeMatch<R>
 
     /** Travels via matching edges. */
-    infix fun <R : Schema> via(match: EdgeMatch<R>): EdgeMatch<R>
+    public infix fun <R : Schema> via(match: EdgeMatch<R>): EdgeMatch<R>
 
     /** Travels to matching neighbour nodes. */
-    infix fun <R : Schema> adjacent(match: NodeMatch<R>): NodeMatch<R>
+    public infix fun <R : Schema> adjacent(match: NodeMatch<R>): NodeMatch<R>
 
     /** Travels to matching source nodes. */
-    infix fun <R : Schema> sources(match: NodeMatch<R>): NodeMatch<R>
+    public infix fun <R : Schema> sources(match: NodeMatch<R>): NodeMatch<R>
 
     /** Travels to matching target nodes. */
-    infix fun <R : Schema> targets(match: NodeMatch<R>): NodeMatch<R>
+    public infix fun <R : Schema> targets(match: NodeMatch<R>): NodeMatch<R>
 }
 
 @Suppress("FunctionName")
-fun <S : Schema> NodeMatch(
+public fun <S : Schema> NodeMatch(
     schema: S,
     where: Where<S>? = null,
     order: Order<S>? = null
@@ -72,51 +72,58 @@ fun <S : Schema> NodeMatch(
     return NodesBySchema(schema, where, order)
 }
 
-interface Where<S : Schema> {
-    companion object {
-        fun <S : Schema> and(a: Where<S>, b: Where<S>): Where<S> = WhereImpl.And(a, b)
+public interface Where<S : Schema> {
+    public companion object {
+        public fun <S : Schema> and(a: Where<S>, b: Where<S>): Where<S> = WhereImpl.And(a, b)
 
-        fun <S : Schema> or(a: Where<S>, b: Where<S>): Where<S> = WhereImpl.Or(a, b)
+        public fun <S : Schema> or(a: Where<S>, b: Where<S>): Where<S> = WhereImpl.Or(a, b)
 
-        fun <S : Schema> handle(handle: ElementHandle): Where<S> = WhereImpl.Handle(handle)
+        public fun <S : Schema> handle(handle: ElementHandle): Where<S> = WhereImpl.Handle(handle)
 
-        fun <S : Schema> handle(handleName: String): Where<S> = WhereImpl.Handle(ElementHandle(handleName))
+        public fun <S : Schema> handle(handleName: String): Where<S> =
+            WhereImpl.Handle(ElementHandle(handleName))
 
-        fun <S : Schema, V : Any, T : V?> between(
+        public fun <S : Schema, V : Any, T : V?> between(
             field: IndexableScalarField<S, T>,
             start: V,
             end: V
         ): Where<S> =
             WhereImpl.Between(field, start, end)
 
-        fun <S : Schema, T> eq(field: IndexableField<S, T>, value: T): Where<S> =
+        public fun <S : Schema, T> eq(field: IndexableField<S, T>, value: T): Where<S> =
             WhereImpl.Equal(field, value)
 
-        fun <S : Schema, V : Any, T : V?> gt(
+        public fun <S : Schema, V : Any, T : V?> gt(
             field: IndexableScalarField<S, T>,
             value: V
         ): Where<S> =
             WhereImpl.GreaterThan(field, value)
 
-        fun <S : Schema, V : Any, T : V?> lt(
+        public fun <S : Schema, V : Any, T : V?> lt(
             field: IndexableScalarField<S, T>,
             value: V
         ): Where<S> =
             WhereImpl.LessThan(field, value)
 
-        fun <S : Schema, T> within(field: IndexableScalarField<S, T>, values: List<T>): Where<S> =
+        public fun <S : Schema, T> within(
+            field: IndexableScalarField<S, T>,
+            values: List<T>
+        ): Where<S> =
             WhereImpl.Within(field, values)
 
-        fun <S : Schema> fts(field: IndexableScalarField<S, String>, value: String): Where<S> =
+        public fun <S : Schema> fts(
+            field: IndexableScalarField<S, String>,
+            value: String
+        ): Where<S> =
             WhereImpl.FullText(field, value)
 
-        fun <S : Schema, T : GeoBounds?> inside(
+        public fun <S : Schema, T : GeoBounds?> inside(
             field: IndexableField<S, T>,
             value: GeoBounds
         ): Where<S> =
             WhereImpl.Inside(field, value)
 
-        fun <S : Schema, T : GeoBounds?> overlaps(
+        public fun <S : Schema, T : GeoBounds?> overlaps(
             field: IndexableField<S, T>,
             value: GeoBounds
         ): Where<S> =
@@ -124,9 +131,12 @@ interface Where<S : Schema> {
     }
 }
 
-interface Order<S : Schema> {
-    companion object {
-        fun <S : Schema> asc(field: IndexableScalarField<S, *>): Order<S> = OrderImpl.Asc(field)
-        fun <S : Schema> desc(field: IndexableScalarField<S, *>): Order<S> = OrderImpl.Desc(field)
+public interface Order<S : Schema> {
+    public companion object {
+        public fun <S : Schema> asc(field: IndexableScalarField<S, *>): Order<S> =
+            OrderImpl.Asc(field)
+
+        public fun <S : Schema> desc(field: IndexableScalarField<S, *>): Order<S> =
+            OrderImpl.Desc(field)
     }
 }

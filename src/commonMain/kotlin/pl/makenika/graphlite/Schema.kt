@@ -16,8 +16,14 @@
 
 package pl.makenika.graphlite
 
-abstract class Schema(val schemaHandle: SchemaHandle, val schemaVersion: Long) {
-    constructor(handleValue: String, version: Long) : this(SchemaHandle(handleValue), version)
+public abstract class Schema(
+    public val schemaHandle: SchemaHandle,
+    public val schemaVersion: Long
+) {
+    public constructor(handleValue: String, version: Long) : this(
+        SchemaHandle(handleValue),
+        version
+    )
 
     private val fields = mutableMapOf<FieldHandle, Field<*, *>>()
     private var isFrozen = false
@@ -91,11 +97,11 @@ abstract class Schema(val schemaHandle: SchemaHandle, val schemaVersion: Long) {
     }
 }
 
-fun <S : Schema> S.fieldMap(builderFn: (S.(FieldMapBuilder<S>) -> Unit)? = null): FieldMap<S> {
+public fun <S : Schema> S.fieldMap(builderFn: (S.(FieldMapBuilder<S>) -> Unit)? = null): FieldMap<S> {
     val b = FieldMapBuilder(this)
     builderFn?.invoke(this, b)
     return b.build()
 }
 
-operator fun <S : Schema> S.invoke(builderFn: (S.(FieldMapBuilder<S>) -> Unit)? = null): FieldMap<S> =
+public operator fun <S : Schema> S.invoke(builderFn: (S.(FieldMapBuilder<S>) -> Unit)? = null): FieldMap<S> =
     fieldMap(builderFn)

@@ -18,4 +18,4 @@ package pl.makenika.graphlite
 
 import java.io.Closeable
 
-actual typealias Cleanable = Closeable
+public actual typealias Cleanable = Closeable

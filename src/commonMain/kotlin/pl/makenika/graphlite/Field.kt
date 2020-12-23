@@ -29,15 +29,15 @@ private enum class BaseFieldCode(val value: String) {
     TxtFts("fts")
 }
 
-sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: Boolean) {
-    class Blob(optional: Boolean) : FieldType(BaseFieldCode.Blb, optional)
-    class DoubleFloat(optional: Boolean) : FieldType(BaseFieldCode.Dbl, optional)
-    class Geo(optional: Boolean) : FieldType(BaseFieldCode.Geo, optional)
-    class LongInt(optional: Boolean) : FieldType(BaseFieldCode.Lng, optional)
-    class Text(optional: Boolean) : FieldType(BaseFieldCode.Txt, optional)
-    class TextFts(optional: Boolean) : FieldType(BaseFieldCode.TxtFts, optional)
+public sealed class FieldType(private val baseFieldCode: BaseFieldCode, internal val optional: Boolean) {
+    internal class Blob(optional: Boolean) : FieldType(BaseFieldCode.Blb, optional)
+    internal class DoubleFloat(optional: Boolean) : FieldType(BaseFieldCode.Dbl, optional)
+    internal class Geo(optional: Boolean) : FieldType(BaseFieldCode.Geo, optional)
+    internal class LongInt(optional: Boolean) : FieldType(BaseFieldCode.Lng, optional)
+    internal class Text(optional: Boolean) : FieldType(BaseFieldCode.Txt, optional)
+    internal class TextFts(optional: Boolean) : FieldType(BaseFieldCode.TxtFts, optional)
 
-    val code: String
+    internal val code: String
         get() = baseFieldCode.value + if (optional) "?" else ""
 
     override fun equals(other: Any?): Boolean {
@@ -61,8 +61,8 @@ sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: B
         return "FieldType(code=$code)"
     }
 
-    companion object {
-        fun fromCode(code: String): FieldType {
+    internal companion object {
+        internal fun fromCode(code: String): FieldType {
             val optional = code.endsWith('?')
             val baseCode = code.removeSuffix("?")
             val fieldCode = BaseFieldCode.values().find { it.value == baseCode }
@@ -79,11 +79,11 @@ sealed class FieldType(private val baseFieldCode: BaseFieldCode, val optional: B
     }
 }
 
-interface Field<in S : Schema, T> {
-    val handle: FieldHandle
-    val type: FieldType
+public interface Field<in S : Schema, T> {
+    public val handle: FieldHandle
+    public val type: FieldType
 
-    companion object {
+    public companion object {
         internal fun <S : Schema> blob(name: String): Field<S, ByteArray> =
             make(name, FieldType.Blob(false))
 
@@ -138,6 +138,6 @@ interface Field<in S : Schema, T> {
     }
 }
 
-interface IndexableField<in S : Schema, T> : Field<S, T>
+public interface IndexableField<in S : Schema, T> : Field<S, T>
 
-interface IndexableScalarField<in S : Schema, T> : IndexableField<S, T>
+public interface IndexableScalarField<in S : Schema, T> : IndexableField<S, T>

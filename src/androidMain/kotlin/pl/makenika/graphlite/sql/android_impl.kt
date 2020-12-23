@@ -20,9 +20,9 @@ import android.content.ContentValues
 import android.database.Cursor
 import pl.makenika.graphlite.Cleanable
 
-actual typealias SqlContentValues = ContentValues
+public actual typealias SqlContentValues = ContentValues
 
-actual class SqliteCursorFacade(private val cursor: Cursor) : Cleanable {
+internal actual class SqliteCursorFacade(private val cursor: Cursor) : Cleanable {
     actual fun findBlob(columnName: String): ByteArray? {
         return getValue(columnName, cursor::getBlob)
     }

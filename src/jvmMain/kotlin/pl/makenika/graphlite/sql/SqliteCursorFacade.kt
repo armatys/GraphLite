@@ -19,7 +19,7 @@ package pl.makenika.graphlite.sql
 import pl.makenika.graphlite.Cleanable
 import java.sql.ResultSet
 
-actual class SqliteCursorFacade(private val resultSet: ResultSet) : Cleanable {
+internal actual class SqliteCursorFacade(private val resultSet: ResultSet) : Cleanable {
     actual fun findBlob(columnName: String): ByteArray? {
         return resultSet.getBytes(columnName)
     }
