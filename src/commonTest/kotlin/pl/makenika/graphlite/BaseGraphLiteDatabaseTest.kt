@@ -359,6 +359,31 @@ abstract class BaseGraphLiteDatabaseTest {
         assertEquals(0, trees.size)
     }
 
+    @Test
+    fun fieldValidatorPass() = blocking {
+        val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
+        assertEquals("John Doe", node { name })
+    }
+
+    @Test
+    fun fieldValidatorFail() = blocking {
+        assertThrows<RollbackException> {
+            tested.createNode(PersonV1 { it[name] = "  " })
+        }
+    }
+
+    @Test
+    fun duplicateValidators() {
+        assertThrows<IllegalStateException> {
+            object : Schema("test", 1) {
+                @Suppress("unused")
+                val name = textField("n")
+                    .onValidate { it.isNotEmpty() }
+                    .onValidate { it.startsWith("A") }
+            }
+        }
+    }
+
     private inline fun <reified T : Throwable> assertThrows(fn: () -> Unit) {
         var exceptionCaught = false
         try {

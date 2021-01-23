@@ -13,7 +13,7 @@ object LikesV2 : Schema("likes", 2) {
 object Loves : Schema("loves", 1)
 
 object PersonV1 : Schema("person", 1) {
-    val name = textField("n")
+    val name = textField("n").onValidate { it.isNotBlank() }
 }
 
 object PersonV2 : Schema("person", 2) {

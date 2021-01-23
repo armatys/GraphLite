@@ -42,7 +42,7 @@ internal data class MutableFieldMapImpl<S : Schema>(
         return fieldValueMap[field] as T
     }
 
-    override fun <T> invoke(field: S.() -> Field<S, T>): T {
+    override fun <F : Field<S, T>, T> invoke(field: S.() -> F): T {
         return get(field(schema))
     }
 
