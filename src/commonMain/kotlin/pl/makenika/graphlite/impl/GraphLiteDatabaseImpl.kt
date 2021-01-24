@@ -266,7 +266,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         value: T
     ): Edge<S> {
         return driver.transaction {
-            updateFieldValue(edge.handle, edge.fieldMap.schema(), field, value)
+            updateFieldValue(edge.handle, edge.fieldMap.schema(), field, edge, value)
             findElement(edge.handle, ElementType.Edge, edge.fieldMap.schema(), ::Edge)!!
         }
     }
@@ -409,7 +409,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         value: T
     ): Node<S> {
         return driver.transaction {
-            updateFieldValue(node.handle, node.fieldMap.schema(), field, value)
+            updateFieldValue(node.handle, node.fieldMap.schema(), field, node, value)
             findElement(node.handle, ElementType.Node, node.fieldMap.schema(), ::Node)!!
         }
     }
@@ -497,7 +497,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
         for ((_, field) in schema.getFields<S>()) {
             val value = fieldMap[field]
-            validateFieldValueOrThrow(schema, field, value)
+            validateFieldValueOrThrow(schema, field, fieldMap, value)
         }
 
         val schemaId = getSchemaId(driver, schema)
@@ -720,10 +720,11 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         elementHandle: ElementHandle,
         schema: S,
         field: Field<S, T>,
+        fieldMap: FieldMap<S>,
         value: T
     ) {
         val fieldId = getFieldId(driver, field, schema)
-        updateFieldValue(elementHandle, field, fieldId, field.type, schema, value)
+        updateFieldValue(elementHandle, schema, field, fieldId, fieldMap, field.type, value)
     }
 
     private fun <S : Schema, T> updateFieldValue(
@@ -731,21 +732,23 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         schema: S,
         schemaId: String,
         field: Field<S, T>,
+        fieldMap: FieldMap<S>,
         value: T
     ) {
         val fieldId = getFieldId(driver, field, schemaId)
-        updateFieldValue(elementHandle, field, fieldId, field.type, schema, value)
+        updateFieldValue(elementHandle, schema, field, fieldId, fieldMap, field.type, value)
     }
 
     private fun <S : Schema, T> updateFieldValue(
         elementHandle: ElementHandle,
+        schema: S,
         field: Field<S, T>,
         fieldId: String,
+        fieldMap: FieldMap<S>,
         fieldType: FieldType,
-        schema: S,
         value: T
     ) {
-        validateFieldValueOrThrow(schema, field, value)
+        validateFieldValueOrThrow(schema, field, fieldMap, value)
 
         val fieldValueTableName = getFieldValueTableName(fieldId)
 
@@ -782,7 +785,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
         for ((_, field) in newSchema.getFields<S>()) {
             val value = newFieldMap[field]
-            updateFieldValue(handle, newSchema, newSchemaId, field, value)
+            updateFieldValue(handle, newSchema, newSchemaId, field, newFieldMap, value)
         }
     }
 
@@ -794,8 +797,13 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         }
     }
 
-    private fun <S : Schema, T> validateFieldValueOrThrow(schema: S, field: Field<S, T>, value: T) {
-        if (schema.getValidator(field)?.invoke(value) == false) {
+    private fun <S : Schema, T> validateFieldValueOrThrow(
+        schema: S,
+        field: Field<S, T>,
+        fieldMap: FieldMap<S>,
+        value: T
+    ) {
+        if (schema.getValidator(field)?.invoke(fieldMap, value) == false) {
             throw RollbackException(ValidatorException(schema, field, value))
         }
     }

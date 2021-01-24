@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
+import pl.makenika.graphlite.impl.ValidatorException
 import pl.makenika.graphlite.sql.RollbackException
 import pl.makenika.graphlite.sql.SqliteDriver
 import kotlin.test.*
@@ -381,6 +382,24 @@ abstract class BaseGraphLiteDatabaseTest {
                     .onValidate { it.isNotEmpty() }
                     .onValidate { it.startsWith("A") }
             }
+        }
+    }
+
+    @Test
+    fun complexValidationPass() = blocking {
+        tested.createNode(Tree {
+            it[age] = 100
+            it[secret] = byteArrayOf(0x64)
+        })
+    }
+
+    @Test
+    fun complexValidationFail() = blocking {
+        assertThrows<RollbackException> {
+            tested.createNode(Tree {
+                it[age] = 99
+                it[secret] = byteArrayOf(0x64)
+            })
         }
     }
 

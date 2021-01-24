@@ -21,7 +21,7 @@ import pl.makenika.graphlite.impl.MutableFieldMapImpl
 public interface FieldMap<S : Schema> {
     public fun contains(field: Field<S, *>): Boolean
     public fun edit(fn: S.(MutableFieldMap<S>) -> Unit): FieldMap<S>
-    public operator fun <T> get(field: Field<S, T>): T
+    public operator fun <F : Field<S, T>, T> get(field: F): T
     public operator fun <F : Field<S, T>, T> invoke(field: S.() -> F): T
     public fun schema(): S
     public fun toMap(): Map<String, Any?>
