@@ -1,3 +1,5 @@
+![Android CI](https://github.com/armatys/GraphLite/workflows/Android%20CI/badge.svg)
+
 # GraphLite
 
 Simple cross-platform graph database on top of SQLite.

@@ -494,6 +494,12 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         require(handle.value.isNotEmpty())
 
         val schema = fieldMap.schema()
+
+        for ((_, field) in schema.getFields<S>()) {
+            val value = fieldMap[field]
+            validateFieldValueOrThrow(schema, field, value)
+        }
+
         val schemaId = getSchemaId(driver, schema)
         val elementValues = SqlContentValues().apply {
             put("id", elementId.toString())
@@ -717,25 +723,30 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         value: T
     ) {
         val fieldId = getFieldId(driver, field, schema)
-        updateFieldValue(elementHandle, fieldId, field.type, value)
+        updateFieldValue(elementHandle, field, fieldId, field.type, schema, value)
     }
 
     private fun <S : Schema, T> updateFieldValue(
         elementHandle: ElementHandle,
+        schema: S,
         schemaId: String,
         field: Field<S, T>,
         value: T
     ) {
         val fieldId = getFieldId(driver, field, schemaId)
-        updateFieldValue(elementHandle, fieldId, field.type, value)
+        updateFieldValue(elementHandle, field, fieldId, field.type, schema, value)
     }
 
-    private fun <T> updateFieldValue(
+    private fun <S : Schema, T> updateFieldValue(
         elementHandle: ElementHandle,
+        field: Field<S, T>,
         fieldId: String,
         fieldType: FieldType,
+        schema: S,
         value: T
     ) {
+        validateFieldValueOrThrow(schema, field, value)
+
         val fieldValueTableName = getFieldValueTableName(fieldId)
 
         driver.delete(fieldValueTableName, "elementHandle = ?", arrayOf(elementHandle.value))
@@ -771,7 +782,7 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
 
         for ((_, field) in newSchema.getFields<S>()) {
             val value = newFieldMap[field]
-            updateFieldValue(handle, newSchemaId, field, value)
+            updateFieldValue(handle, newSchema, newSchemaId, field, value)
         }
     }
 
@@ -782,4 +793,13 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
             driver.delete(tableName, "elementHandle = ?", arrayOf(elementHandle.value))
         }
     }
+
+    private fun <S : Schema, T> validateFieldValueOrThrow(schema: S, field: Field<S, T>, value: T) {
+        if (schema.getValidator(field)?.invoke(value) == false) {
+            throw RollbackException(ValidatorException(schema, field, value))
+        }
+    }
 }
+
+internal class ValidatorException(schema: Schema, field: Field<*, *>, value: Any?) :
+    Throwable("Field \"${field.handle.value}\" from schema \"${schema.schemaHandle.value}\" (version ${schema.schemaVersion}) has invalid value: \"$value\"")

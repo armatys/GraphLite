@@ -3,7 +3,7 @@ buildscript {
         google()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:4.1.1")
+        classpath("com.android.tools.build:gradle:4.1.2")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.21")
     }
 }
@@ -58,7 +58,7 @@ repositories {
 }
 
 group = "pl.makenika.graphlite"
-version = "0.0.8"
+version = "0.0.9"
 
 kotlin {
     explicitApi()
