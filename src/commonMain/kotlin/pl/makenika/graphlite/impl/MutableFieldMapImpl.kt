@@ -37,7 +37,7 @@ internal data class MutableFieldMapImpl<S : Schema>(
         return mutableFieldMap
     }
 
-    override fun <T> get(field: Field<S, T>): T {
+    override fun <F : Field<S, T>, T> get(field: F): T {
         @Suppress("UNCHECKED_CAST")
         return fieldValueMap[field] as T
     }

@@ -16,7 +16,7 @@
 
 package pl.makenika.graphlite
 
-internal typealias FieldValidator<T> = (T) -> Boolean
+internal typealias FieldValidator<S, T> = FieldMap<out S>.(T) -> Boolean
 
 public abstract class Schema(
     public val schemaHandle: SchemaHandle,
@@ -28,7 +28,7 @@ public abstract class Schema(
     )
 
     private val fields = mutableMapOf<FieldHandle, Field<*, *>>()
-    private val fieldValidators = mutableMapOf<FieldHandle, FieldValidator<*>>()
+    private val fieldValidators = mutableMapOf<FieldHandle, FieldValidator<*, *>>()
     private var isFrozen = false
 
     internal fun <F : Field<S, *>, S : Schema> addField(field: F): F {
@@ -48,8 +48,8 @@ public abstract class Schema(
         fields as Map<String, Field<S, Any?>>
 
     @Suppress("UNCHECKED_CAST")
-    internal fun <S : Schema, T> getValidator(field: Field<S, T>): FieldValidator<T>? {
-        return fieldValidators[field.handle] as FieldValidator<T>?
+    internal fun <S : Schema, T> getValidator(field: Field<S, T>): FieldValidator<S, T>? {
+        return fieldValidators[field.handle] as FieldValidator<S, T>?
     }
 
     protected fun <S : Schema> S.optional(): OptionalFieldBuilder<S> {
@@ -83,8 +83,9 @@ public abstract class Schema(
         }
     }
 
-    protected fun <F : Field<S, T>, S : Schema, T> F.onValidate(validator: (T) -> Boolean): F {
-        check(fieldValidators.put(handle, validator) == null) {
+    protected fun <F : Field<S, T>, S : Schema, T> F.onValidate(validator: FieldValidator<S, T>): F {
+        @Suppress("UNCHECKED_CAST")
+        check(fieldValidators.put(handle, validator as FieldValidator<*, *>) == null) {
             "Validator for field \"${handle.value}\" has been already added."
         }
         return this

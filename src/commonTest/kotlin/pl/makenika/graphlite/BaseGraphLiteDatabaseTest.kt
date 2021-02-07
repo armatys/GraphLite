@@ -232,7 +232,7 @@ abstract class BaseGraphLiteDatabaseTest {
     @Test
     fun updateFieldValue() = blocking {
         val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
-        val updated = tested.updateEdgeField(node, PersonV1.name, "John F. Doe")
+        val updated = tested.updateNodeField(node, PersonV1.name, "John F. Doe")
         assertEquals("John F. Doe", updated[PersonV1.name])
     }
 
@@ -240,7 +240,7 @@ abstract class BaseGraphLiteDatabaseTest {
     fun updateNonExistentNode() = blocking {
         val node = Node(NodeHandle("test"), PersonV1 { it[name] = "John Doe" })
         assertThrows<RollbackException> {
-            tested.updateEdgeField(node, PersonV1.name, "test value")
+            tested.updateNodeField(node, PersonV1.name, "test value")
         }
     }
 
@@ -382,6 +382,64 @@ abstract class BaseGraphLiteDatabaseTest {
                     .onValidate { it.startsWith("A") }
             }
         }
+    }
+
+    @Test
+    fun complexValidationPass() = blocking {
+        tested.createNode(Tree {
+            it[age] = 100
+            it[secret] = byteArrayOf(0x64)
+        })
+    }
+
+    @Test
+    fun complexValidationFail() = blocking {
+        assertThrows<RollbackException> {
+            tested.createNode(Tree {
+                it[age] = 99
+                it[secret] = byteArrayOf(0x64)
+            })
+        }
+    }
+
+    @Test
+    fun singleFieldDbValidationFail() = blocking {
+        val node = tested.createNode(Tree {
+            it[age] = 99
+            it[secret] = byteArrayOf(0x60)
+        })
+
+        assertThrows<RollbackException> {
+            val localNode = Node(node.handle, node.toMutableFieldMap().edit { it[age] = 100 })
+            tested.updateNodeField(localNode, Tree.secret, byteArrayOf(0x64))
+            // Setting the `secret` to [0x64] requires the `age` to be equal to 100.
+            // While the local value is equal to that value, the value stored
+            // in the database is `99`, so the update should fail.
+        }
+
+        val freshNode = tested.query(NodeMatch(Tree, Where.handle(node.handle))).first()
+        assertEquals(99, freshNode { age })
+        assertTrue(byteArrayOf(0x60).contentEquals(freshNode { secret }))
+    }
+
+    @Test
+    fun singleFieldLocalValidationFail() = blocking {
+        val edge = tested.createEdge(Tree {
+            it[age] = 100
+            it[secret] = byteArrayOf(0x60)
+        })
+
+        assertThrows<RollbackException> {
+            val localEdge = Edge(edge.handle, edge.toMutableFieldMap().edit { it[age] = 99 })
+            tested.updateEdgeField(localEdge, Tree.secret, byteArrayOf(0x64))
+            // Setting the `secret` to [0x64] requires the `age` to be equal to 100.
+            // Even though the value in the database is equal to 100,
+            // the update fails, since the local value is unexpected.
+        }
+
+        val freshEdge = tested.query(EdgeMatch(Tree, Where.handle(edge.handle))).first()
+        assertEquals(100, freshEdge { age })
+        assertTrue(byteArrayOf(0x60).contentEquals(freshEdge { secret }))
     }
 
     private inline fun <reified T : Throwable> assertThrows(fn: () -> Unit) {
