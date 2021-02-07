@@ -135,7 +135,7 @@ public interface GraphLiteDatabase {
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public suspend fun <S : Schema, T> updateEdgeField(
+    public suspend fun <S : Schema, T> updateNodeField(
         node: Node<S>,
         field: Field<S, T>,
         value: T

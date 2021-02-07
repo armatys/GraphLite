@@ -267,7 +267,10 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
     ): Edge<S> {
         return driver.transaction {
             updateFieldValue(edge.handle, edge.fieldMap.schema(), field, edge, value)
-            findElement(edge.handle, ElementType.Edge, edge.fieldMap.schema(), ::Edge)!!
+            val freshEdge =
+                findElement(edge.handle, ElementType.Edge, edge.fieldMap.schema(), ::Edge)!!
+            validateFieldValueOrThrow(edge.fieldMap.schema(), field, freshEdge, value)
+            freshEdge
         }
     }
 
@@ -403,14 +406,17 @@ internal class GraphLiteDatabaseImpl internal constructor(private val driver: Sq
         return getOrCreateNode(NodeHandle(handleValue), fieldMap)
     }
 
-    override suspend fun <S : Schema, T> updateEdgeField(
+    override suspend fun <S : Schema, T> updateNodeField(
         node: Node<S>,
         field: Field<S, T>,
         value: T
     ): Node<S> {
         return driver.transaction {
             updateFieldValue(node.handle, node.fieldMap.schema(), field, node, value)
-            findElement(node.handle, ElementType.Node, node.fieldMap.schema(), ::Node)!!
+            val freshNode =
+                findElement(node.handle, ElementType.Node, node.fieldMap.schema(), ::Node)!!
+            validateFieldValueOrThrow(node.fieldMap.schema(), field, freshNode, value)
+            freshNode
         }
     }
 
