@@ -55,6 +55,8 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
         val j1 = db1.createNode("john", PersonV1 { it[name] = "John Doe" })!!
         val likesEdge = db1.createEdge(Likes())
         db1.connect(likesEdge.handle, a1.handle, j1.handle, false)
+        assertEquals(PersonV1, db1.findNodeSchema(a1.handle))
+        assertEquals(PersonV1, db1.findNodeSchema(j1.handle))
 
         tested = GraphLiteDatabaseBuilder(driver)
         val db2 = tested
@@ -74,6 +76,9 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
                 }
             }
             .open()
+
+        assertEquals(PersonV2, db2.findNodeSchema(a1.handle))
+        assertEquals(PersonV2, db2.findNodeSchema(j1.handle))
 
         val a2 = db2.query(NodeMatch(PersonV2, Where.handle("alice"))).first()
         assertEquals(a1.handle, a2.handle)

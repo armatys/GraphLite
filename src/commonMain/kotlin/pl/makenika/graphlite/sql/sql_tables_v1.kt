@@ -17,17 +17,22 @@
 package pl.makenika.graphlite.sql
 
 //language=SQLITE-SQL
-internal val schemaV1 = arrayOf(
+internal val sqlTablesV1 = arrayOf(
     """create table if not exists Schema (
-  id varchar primary key not null,
+  clockValue integer primary key autoincrement,
+  id varchar not null unique,
+  createdAt datetime not null default CURRENT_TIMESTAMP,
   handle varchar not null,
-  version int not null
+  parentId varchar,
+  version int not null,
+  foreign key (parentId) references Schema (id) on delete set null
 );""",
 
     "create unique index if not exists schemaIndex on Schema (handle, version);",
 
     """create table if not exists Field (
   id varchar primary key not null,
+  createdAt datetime not null default CURRENT_TIMESTAMP,
   handle varchar not null,
   schemaId varchar not null,
   type varchar(16) not null, -- blob, integer, real, text, geo
@@ -38,6 +43,7 @@ internal val schemaV1 = arrayOf(
 
     """create table if not exists Element (
   id varchar primary key not null,
+  createdAt datetime not null default CURRENT_TIMESTAMP,
   handle varchar not null unique,
   schemaId varchar not null,
   type varchar not null,
@@ -49,6 +55,7 @@ internal val schemaV1 = arrayOf(
 
     """create table if not exists Connection (
   id varchar primary key not null,
+  createdAt datetime not null default CURRENT_TIMESTAMP,
   edgeHandle varchar not null,
   nodeHandle varchar not null,
   outgoing boolean,
@@ -62,12 +69,6 @@ internal val schemaV1 = arrayOf(
     "create index if not exists nodeOutgoingIndex on Connection (nodeHandle, outgoing);"
 )
 
-// TODO log table, or use Session extension https://www.sqlite.org/sessionintro.html
-// operation (create, update, delete)
-// table name
-// id
-// timestamp
-
 internal fun getFieldValueTableName(fieldId: String): String = "Field_${safeTableName(fieldId)}"
 internal fun getFtsTableName(fieldId: String): String = "FieldFtsText_${safeTableName(fieldId)}"
 internal fun getRTreeTableName(fieldId: String): String = "FieldGeo_${safeTableName(fieldId)}_rtree"
@@ -80,6 +81,7 @@ internal fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean
         """
         create table if not exists $tableName (
           id varchar primary key not null,
+          createdAt datetime not null default CURRENT_TIMESTAMP,
           elementHandle varchar not null unique,
           value blob $notNull,
           foreign key (elementHandle) references Element (handle) on delete cascade
@@ -87,7 +89,10 @@ internal fun createTableFieldValueBlob(fieldId: String, isValueOptional: Boolean
     )
 }
 
-internal fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Boolean): Array<String> {
+internal fun createTableFieldValueLongInt(
+    fieldId: String,
+    isValueOptional: Boolean
+): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -96,6 +101,7 @@ internal fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Bool
         """
         create table if not exists $tableName (
           id varchar primary key not null,
+          createdAt datetime not null default CURRENT_TIMESTAMP,
           elementHandle varchar not null unique,
           value integer $notNull,
           foreign key (elementHandle) references Element (handle) on delete cascade
@@ -105,7 +111,10 @@ internal fun createTableFieldValueLongInt(fieldId: String, isValueOptional: Bool
     )
 }
 
-internal fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: Boolean): Array<String> {
+internal fun createTableFieldValueDoubleFloat(
+    fieldId: String,
+    isValueOptional: Boolean
+): Array<String> {
     val notNull = if (isValueOptional) "" else "not null"
     val safeFieldId = safeTableName(fieldId)
     val tableName = getFieldValueTableName(fieldId)
@@ -114,6 +123,7 @@ internal fun createTableFieldValueDoubleFloat(fieldId: String, isValueOptional: 
         """
         create table if not exists $tableName (
           id varchar primary key not null,
+          createdAt datetime not null default CURRENT_TIMESTAMP,
           elementHandle varchar not null unique,
           value real $notNull,
           foreign key (elementHandle) references Element (handle) on delete cascade
@@ -164,6 +174,7 @@ internal fun createTableFieldValueText(
         """
         create table if not exists $tableName (
           id varchar primary key not null,
+          createdAt datetime not null default CURRENT_TIMESTAMP,
           elementHandle varchar not null unique,
           value text $notNull,
           foreign key (elementHandle) references Element (handle) on delete cascade
@@ -183,6 +194,7 @@ internal fun createTableFieldValueGeo(fieldId: String, isValueOptional: Boolean)
         """
         create table if not exists $tableName (
           id varchar primary key not null,
+          createdAt datetime not null default CURRENT_TIMESTAMP,
           elementHandle varchar not null unique,
           minLat real $notNull,
           maxLat real $notNull,

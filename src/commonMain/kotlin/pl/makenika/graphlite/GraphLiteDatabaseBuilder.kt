@@ -19,6 +19,7 @@ package pl.makenika.graphlite
 import com.benasher44.uuid.uuid4
 import pl.makenika.graphlite.impl.GraphLiteDatabaseImpl
 import pl.makenika.graphlite.impl.GraphSqlUtils.getSchemaFields
+import pl.makenika.graphlite.impl.SchemaInternal
 import pl.makenika.graphlite.sql.*
 
 public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
@@ -58,10 +59,11 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         val helper = GraphDriverHelper(driver, SQL_SCHEMA_VERSION)
         val db = GraphLiteDatabaseImpl(helper.open())
 
-        val schemasFromDb: Map<SchemaHandle, Schema> = loadSchemasFromDb()
+        val schemasFromDb: Map<SchemaHandle, SchemaInternal> = loadSchemasFromDb()
         val migrationsToRun = mutableListOf<MigrationRequest>()
         val schemasToDelete = schemasFromDb.minus(registeredSchemas.keys).values.toMutableList()
         val schemasToInsert = mutableListOf<Schema>()
+        val schemasToUpdate = mutableListOf<Pair<SchemaInternal, Schema>>()
 
         for ((schemaHandleValue, registeredSchema) in registeredSchemas) {
             val dbSchema = schemasFromDb[schemaHandleValue]
@@ -69,8 +71,7 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
                 schemasToInsert.add(registeredSchema)
             } else if (dbSchema.schemaVersion != registeredSchema.schemaVersion) {
                 check(registeredSchema.schemaVersion > dbSchema.schemaVersion)
-                schemasToInsert.add(registeredSchema)
-                schemasToDelete.add(dbSchema)
+                schemasToUpdate.add(Pair(dbSchema, registeredSchema))
                 migrationsToRun.add(MigrationRequest(dbSchema, registeredSchema))
             } else if (dbSchema.getFields<Schema>() != registeredSchema.getFields<Schema>()) {
                 if (shouldDeleteOnSchemaConflict) {
@@ -95,6 +96,7 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
 
         driver.transaction {
             schemasToInsert.forEach { insertSchema(it) }
+            schemasToUpdate.forEach { updateSchema(it.first, it.second) }
             migrationsToRun.forEach { performMigration(db, it) }
             schemasToDelete.forEach { deleteSchema(it) }
         }
@@ -102,15 +104,23 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         return db
     }
 
-    private fun loadSchemasFromDb(): Map<SchemaHandle, Schema> {
-        val schemas = mutableMapOf<SchemaHandle, Schema>()
-        driver.query("SELECT * FROM Schema").use { schemaCursor ->
+    private fun loadSchemasFromDb(): Map<SchemaHandle, SchemaInternal> {
+        val schemas = mutableMapOf<SchemaHandle, SchemaInternal>()
+        driver.query("SELECT * FROM Schema ORDER BY clockValue ASC").use { schemaCursor ->
             while (schemaCursor.moveToNext()) {
                 val schemaId = schemaCursor.getString("id")
+                val clockValue = schemaCursor.getLong("clockValue")
                 val handleValue = schemaCursor.getString("handle")
+                val parentId = schemaCursor.findString("parentId")
                 val version = schemaCursor.getLong("version")
                 val schemaHandle = SchemaHandle(handleValue)
-                val schema = object : Schema(schemaHandle, version) {}
+                val schema = SchemaInternal(
+                    schemaId,
+                    clockValue,
+                    parentId,
+                    schemaHandle,
+                    version
+                )
 
                 getSchemaFields(driver, schemaId).forEach {
                     schema.addField(it)
@@ -123,11 +133,12 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         return schemas
     }
 
-    private fun insertSchema(schema: Schema) {
+    private fun insertSchema(schema: Schema, parentId: String? = null) {
         val schemaId = uuid4().toString()
         val schemaValues = SqlContentValues().apply {
             put("id", schemaId)
             put("handle", schema.schemaHandle.value)
+            if (parentId != null) put("parentId", parentId)
             put("version", schema.schemaVersion)
         }
         driver.insertOrAbortAndThrow("Schema", schemaValues)
@@ -169,8 +180,8 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         db: GraphLiteDatabase,
         migrationRequest: MigrationRequest
     ) {
-        val targetVersionMigrations =
-            migrations[migrationRequest.newSchema.schemaHandle] ?: emptyMap<Int, Migration>()
+        val targetVersionMigrations: Map<Long, Migration> =
+            migrations[migrationRequest.newSchema.schemaHandle] ?: emptyMap()
         for (v in (migrationRequest.oldSchema.schemaVersion + 1)..migrationRequest.newSchema.schemaVersion) {
             val migration = targetVersionMigrations[v]
                 ?: error("Missing migration for ${migrationRequest.newSchema.schemaHandle} from version ${migrationRequest.oldSchema.schemaVersion} to version ${migrationRequest.newSchema.schemaVersion}.")
@@ -186,6 +197,10 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         )
     }
 
+    private fun updateSchema(oldSchema: SchemaInternal, newSchema: Schema) {
+        insertSchema(newSchema, parentId = oldSchema.id)
+    }
+
     internal companion object {
         private const val SQL_SCHEMA_VERSION = 1L
     }
@@ -198,7 +213,7 @@ private class MigrationRequest(val oldSchema: Schema, val newSchema: Schema)
 private class GraphDriverHelper(driver: SqliteDriver, version: Long) :
     SqliteDriverHelper(driver, version) {
     override fun onCreate(driver: SqliteDriver) {
-        schemaV1.forEach { driver.execute(it) }
+        sqlTablesV1.forEach { driver.execute(it) }
     }
 
     override fun onUpgrade(driver: SqliteDriver, oldVersion: Long, newVersion: Long) {
