@@ -1,3 +1,1 @@
 rootProject.name = "graphlite"
-
-enableFeaturePreview("GRADLE_METADATA")
