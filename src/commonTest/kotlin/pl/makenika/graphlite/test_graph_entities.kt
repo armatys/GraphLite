@@ -27,6 +27,6 @@ object Tree : Schema("tree", 1) {
     val location = optional().geoField("l")
     val name = optional().textField("n")
     val secret = optional().blobField("s").onValidate {
-        if (it.contentEquals(byteArrayOf(0x64))) get(age) == 100L else true
+        if (it.contentEquals(byteArrayOf(0x64))) this[age] == 100L else true
     }
 }

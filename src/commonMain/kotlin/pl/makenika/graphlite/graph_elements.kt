@@ -16,6 +16,8 @@
 
 package pl.makenika.graphlite
 
+import kotlin.jvm.JvmInline
+
 public interface Handle {
     public val value: String
 }
@@ -41,11 +43,20 @@ public fun EdgeHandle(value: String): EdgeHandle = EdgeHandleImpl(value)
 @Suppress("FunctionName")
 public fun NodeHandle(value: String): NodeHandle = NodeHandleImpl(value)
 
-private inline class SchemaHandleImpl(override val value: String) : SchemaHandle
-private inline class FieldHandleImpl(override val value: String) : FieldHandle
-private inline class ElementHandleImpl(override val value: String) : ElementHandle
-private inline class EdgeHandleImpl(override val value: String) : EdgeHandle
-private inline class NodeHandleImpl(override val value: String) : NodeHandle
+@JvmInline
+private value class SchemaHandleImpl(override val value: String) : SchemaHandle
+
+@JvmInline
+private value class FieldHandleImpl(override val value: String) : FieldHandle
+
+@JvmInline
+private value class ElementHandleImpl(override val value: String) : ElementHandle
+
+@JvmInline
+private value class EdgeHandleImpl(override val value: String) : EdgeHandle
+
+@JvmInline
+private value class NodeHandleImpl(override val value: String) : NodeHandle
 
 public data class Connection(
     val edgeHandle: EdgeHandle,
