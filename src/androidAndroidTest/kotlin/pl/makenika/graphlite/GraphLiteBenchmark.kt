@@ -5,9 +5,6 @@ import androidx.benchmark.junit4.BenchmarkRule
 import androidx.benchmark.junit4.measureRepeated
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.runBlocking
 import pl.makenika.graphlite.sql.AndroidSqliteDriver
 import org.junit.After
 import org.junit.Before
@@ -24,7 +21,7 @@ class GraphLiteBenchmark {
     private lateinit var tested: GraphLiteDatabase
 
     @Before
-    fun setUp() = runBlocking {
+    fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val driver = AndroidSqliteDriver.newInstanceInMemory(context)
         tested = GraphLiteDatabaseBuilder(driver)
@@ -39,39 +36,31 @@ class GraphLiteBenchmark {
 
     @Test
     fun insertPeople() = benchmarkRule.measureRepeated {
-        runBlocking {
-            val personName = Random.nextInt().toString()
-            tested.createNode(PersonV1 { it[name] = personName })
-        }
+        val personName = Random.nextInt().toString()
+        tested.createNode(PersonV1 { it[name] = personName })
     }
 
     @Test
     fun findByName() {
         benchmarkRule.measureRepeated {
-            runBlocking {
-                val i = Random.nextInt()
-                tested.query(NodeMatch(PersonV1, Where.handle("$i"))).firstOrNull()
-            }
+            val i = Random.nextInt()
+            tested.query(NodeMatch(PersonV1, Where.handle("$i"))).firstOrNull()
         }
     }
 
     @Test
     fun loadNode() {
-        val node = runBlocking {
-            tested.createNode(PersonV1 { it[name] = "John Doe" })
-        }
+        val node = tested.createNode(PersonV1 { it[name] = "John Doe" })
         benchmarkRule.measureRepeated {
-            runBlocking { tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first() }
+            tested.query(NodeMatch(PersonV1, Where.handle(node.handle))).first()
         }
     }
 
     @Test
     fun deleteByName() {
         benchmarkRule.measureRepeated {
-            runBlocking {
-                val i = Random.nextInt()
-                tested.deleteNode(NodeHandle("$i"))
-            }
+            val i = Random.nextInt()
+            tested.deleteNode(NodeHandle("$i"))
         }
     }
 }

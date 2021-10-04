@@ -16,144 +16,142 @@
 
 package pl.makenika.graphlite
 
-import kotlinx.coroutines.flow.Flow
-
 public interface GraphLiteDatabase {
     public fun close()
 
-    public suspend fun connect(
+    public fun connect(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
         outgoing: Boolean? = null
     ): Connection
 
-    public suspend fun connect(
+    public fun connect(
         edgeHandle: EdgeHandle,
         sourceNodeHandle: NodeHandle,
         targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection>
 
-    public suspend fun connectOrReplace(
+    public fun connectOrReplace(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
         outgoing: Boolean? = null
     ): Connection
 
-    public suspend fun connectOrReplace(
+    public fun connectOrReplace(
         edgeHandle: EdgeHandle,
         sourceNodeHandle: NodeHandle,
         targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection>
 
-    public suspend fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean
-    public fun getConnections(elementHandle: ElementHandle): Flow<Connection>
-    public suspend fun getOrConnect(
+    public fun disconnect(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Boolean
+    public fun getConnections(elementHandle: ElementHandle): Sequence<Connection>
+    public fun getOrConnect(
         edgeHandle: EdgeHandle,
         nodeHandle: NodeHandle,
         outgoing: Boolean? = null
     ): Connection
 
-    public suspend fun getOrConnect(
+    public fun getOrConnect(
         edgeHandle: EdgeHandle,
         sourceNodeHandle: NodeHandle,
         targetNodeHandle: NodeHandle,
         directed: Boolean
     ): Collection<Connection>
 
-    public suspend fun findConnection(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Connection?
+    public fun findConnection(edgeHandle: EdgeHandle, nodeHandle: NodeHandle): Connection?
 
-    public suspend fun <S : Schema> createEdge(fieldMap: FieldMap<S>): Edge<S>
-    public suspend fun <S : Schema> createEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>?
-    public suspend fun <S : Schema> createEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>?
-    public suspend fun <S : Schema> createOrReplaceEdge(
+    public fun <S : Schema> createEdge(fieldMap: FieldMap<S>): Edge<S>
+    public fun <S : Schema> createEdge(handle: EdgeHandle, fieldMap: FieldMap<S>): Edge<S>?
+    public fun <S : Schema> createEdge(handleValue: String, fieldMap: FieldMap<S>): Edge<S>?
+    public fun <S : Schema> createOrReplaceEdge(
         handle: EdgeHandle,
         fieldMap: FieldMap<S>
     ): Edge<S>
 
-    public suspend fun <S : Schema> createOrReplaceEdge(
+    public fun <S : Schema> createOrReplaceEdge(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Edge<S>
 
-    public suspend fun deleteEdge(handle: EdgeHandle, withConnections: Boolean = true): Boolean
-    public suspend fun deleteEdge(handleValue: String, withConnections: Boolean = true): Boolean
-    public suspend fun findEdgeSchema(handle: EdgeHandle): Schema?
-    public suspend fun findEdgeSchema(handleValue: String): Schema?
-    public suspend fun <S : Schema> getOrCreateEdge(
+    public fun deleteEdge(handle: EdgeHandle, withConnections: Boolean = true): Boolean
+    public fun deleteEdge(handleValue: String, withConnections: Boolean = true): Boolean
+    public fun findEdgeSchema(handle: EdgeHandle): Schema?
+    public fun findEdgeSchema(handleValue: String): Schema?
+    public fun <S : Schema> getOrCreateEdge(
         handle: EdgeHandle,
         fieldMap: FieldMap<S>
     ): Edge<S>
 
-    public suspend fun <S : Schema> getOrCreateEdge(
+    public fun <S : Schema> getOrCreateEdge(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Edge<S>
 
-    public suspend fun <S : Schema, T> updateEdgeField(
+    public fun <S : Schema, T> updateEdgeField(
         edge: Edge<S>,
         field: Field<S, T>,
         value: T
     ): Edge<S>
 
-    public suspend fun <S : Schema> updateEdgeFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S>
-    public suspend fun <S : Schema> updateEdgeFields(
+    public fun <S : Schema> updateEdgeFields(edge: Edge<*>, fieldMap: FieldMap<S>): Edge<S>
+    public fun <S : Schema> updateEdgeFields(
         handle: EdgeHandle,
         fieldMap: FieldMap<S>
     ): Edge<S>
 
-    public suspend fun <S : Schema> updateEdgeFields(
+    public fun <S : Schema> updateEdgeFields(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Edge<S>
 
-    public suspend fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S>
-    public suspend fun <S : Schema> createNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>?
-    public suspend fun <S : Schema> createNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>?
-    public suspend fun <S : Schema> createOrReplaceNode(
+    public fun <S : Schema> createNode(fieldMap: FieldMap<S>): Node<S>
+    public fun <S : Schema> createNode(handle: NodeHandle, fieldMap: FieldMap<S>): Node<S>?
+    public fun <S : Schema> createNode(handleValue: String, fieldMap: FieldMap<S>): Node<S>?
+    public fun <S : Schema> createOrReplaceNode(
         handle: NodeHandle,
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public suspend fun <S : Schema> createOrReplaceNode(
+    public fun <S : Schema> createOrReplaceNode(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public suspend fun deleteNode(handle: NodeHandle, withConnections: Boolean = true): Boolean
-    public suspend fun deleteNode(handleValue: String, withConnections: Boolean = true): Boolean
-    public suspend fun findNodeSchema(handle: NodeHandle): Schema?
-    public suspend fun findNodeSchema(handleValue: String): Schema?
-    public suspend fun <S : Schema> getOrCreateNode(
+    public fun deleteNode(handle: NodeHandle, withConnections: Boolean = true): Boolean
+    public fun deleteNode(handleValue: String, withConnections: Boolean = true): Boolean
+    public fun findNodeSchema(handle: NodeHandle): Schema?
+    public fun findNodeSchema(handleValue: String): Schema?
+    public fun <S : Schema> getOrCreateNode(
         handle: NodeHandle,
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public suspend fun <S : Schema> getOrCreateNode(
+    public fun <S : Schema> getOrCreateNode(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public suspend fun <S : Schema, T> updateNodeField(
+    public fun <S : Schema, T> updateNodeField(
         node: Node<S>,
         field: Field<S, T>,
         value: T
     ): Node<S>
 
-    public suspend fun <S : Schema> updateNodeFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S>
-    public suspend fun <S : Schema> updateNodeFields(
+    public fun <S : Schema> updateNodeFields(node: Node<*>, fieldMap: FieldMap<S>): Node<S>
+    public fun <S : Schema> updateNodeFields(
         handle: NodeHandle,
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public suspend fun <S : Schema> updateNodeFields(
+    public fun <S : Schema> updateNodeFields(
         handleValue: String,
         fieldMap: FieldMap<S>
     ): Node<S>
 
-    public fun <S : Schema> query(match: EdgeMatch<S>): Flow<Edge<S>>
-    public fun <S : Schema> query(match: NodeMatch<S>): Flow<Node<S>>
+    public fun <S : Schema> query(match: EdgeMatch<S>): Sequence<Edge<S>>
+    public fun <S : Schema> query(match: NodeMatch<S>): Sequence<Node<S>>
 
-    public suspend fun <T> transaction(fn: suspend GraphLiteDatabase.() -> T): T
+    public fun <T> transaction(fn: GraphLiteDatabase.() -> T): T
 }

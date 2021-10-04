@@ -1,8 +1,5 @@
 package pl.makenika.graphlite
 
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.toList
 import pl.makenika.graphlite.sql.SqliteDriver
 import kotlin.test.*
 
@@ -10,7 +7,6 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
     private lateinit var driver: SqliteDriver
     private lateinit var tested: GraphLiteDatabaseBuilder
 
-    protected abstract fun blocking(fn: suspend () -> Unit)
     protected abstract fun makeDriver(): SqliteDriver
 
     @BeforeTest
@@ -25,17 +21,17 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
     }
 
     @Test
-    fun opensDatabase() = blocking {
+    fun opensDatabase() {
         tested.open()
     }
 
     @Test
-    fun registersSchema() = blocking {
+    fun registersSchema() {
         tested.register(PersonV1).open()
     }
 
     @Test
-    fun performsEmptyMigration() = blocking {
+    fun performsEmptyMigration() {
         tested.register(PersonV1).open()
         var wasMigrationRun = false
         tested = GraphLiteDatabaseBuilder(driver)
@@ -49,7 +45,7 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
     }
 
     @Test
-    fun performsMigration() = blocking {
+    fun performsMigration() {
         val db1 = tested.register(Likes).register(PersonV1).open()
         val a1 = db1.createNode("alice", PersonV1 { it[name] = "Alice Kowalski" })!!
         val j1 = db1.createNode("john", PersonV1 { it[name] = "John Doe" })!!
@@ -61,12 +57,12 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
             .register(LikesV2)
             .register(PersonV2)
             .migration(Likes, LikesV2) { db ->
-                db.query(EdgeMatch(Likes)).collect { edge ->
+                db.query(EdgeMatch(Likes)).forEach { edge ->
                     db.updateEdgeFields(edge, LikesV2 { it[level] = 100L })
                 }
             }
             .migration(PersonV1, PersonV2) { db ->
-                db.query(NodeMatch(PersonV1)).collect { node ->
+                db.query(NodeMatch(PersonV1)).forEach { node ->
                     val (fName, lName) = node { name }.split(" ")
                     db.updateNodeFields(
                         node,

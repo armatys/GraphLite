@@ -22,8 +22,11 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.Types
 
-public class JvmSqliteDriver private constructor(private val connection: Connection) : SqliteDriver() {
-    private var isSuccessful = false
+internal actual typealias ThreadLocalState<T> = ThreadLocal<T>
+
+public class JvmSqliteDriver private constructor(private val connection: Connection) :
+    SqliteDriver() {
+    private var isSuccessful = ThreadLocal<Boolean>()
 
     init {
         connection.autoCommit = true
@@ -35,22 +38,22 @@ public class JvmSqliteDriver private constructor(private val connection: Connect
     }
 
     override fun beginTransaction() {
-        isSuccessful = false
+        isSuccessful.set(false)
         connection.autoCommit = false
     }
 
     override fun endTransaction() {
-        if (isSuccessful) {
+        if (isSuccessful.get() == true) {
             connection.commit()
         } else {
             connection.rollback()
         }
         connection.autoCommit = true
-        isSuccessful = false
+        isSuccessful.remove()
     }
 
     override fun setTransactionSuccessful() {
-        isSuccessful = true
+        isSuccessful.set(true)
     }
 
     override fun delete(table: String, whereClause: String, whereArgs: Array<String>): Boolean {

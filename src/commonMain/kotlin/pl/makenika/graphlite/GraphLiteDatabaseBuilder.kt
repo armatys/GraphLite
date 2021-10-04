@@ -54,7 +54,7 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         return this
     }
 
-    public suspend fun open(): GraphLiteDatabase {
+    public fun open(): GraphLiteDatabase {
         val helper = GraphDriverHelper(driver, SQL_SCHEMA_VERSION)
         val db = GraphLiteDatabaseImpl(helper.open())
 
@@ -165,7 +165,7 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         }
     }
 
-    private suspend fun performMigration(
+    private fun performMigration(
         db: GraphLiteDatabase,
         migrationRequest: MigrationRequest
     ) {
@@ -191,7 +191,7 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
     }
 }
 
-private typealias Migration = suspend (GraphLiteDatabase) -> Unit
+private typealias Migration = (GraphLiteDatabase) -> Unit
 
 private class MigrationRequest(val oldSchema: Schema, val newSchema: Schema)
 

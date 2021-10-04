@@ -23,7 +23,10 @@ import org.sqlite.database.sqlite.SQLiteDatabase
 import org.sqlite.database.sqlite.SQLiteOpenHelper
 import java.lang.StringBuilder
 
-public class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) : SqliteDriver() {
+public actual typealias ThreadLocalState<T> = ThreadLocal<T>
+
+public class AndroidSqliteDriver private constructor(private val db: SQLiteDatabase) :
+    SqliteDriver() {
     override fun beginTransaction(): Unit = db.beginTransaction()
 
     override fun endTransaction(): Unit = db.endTransaction()
@@ -80,7 +83,10 @@ public class AndroidSqliteDriver private constructor(private val db: SQLiteDatab
             return AndroidSqliteDriver(sqliteDb)
         }
 
-        public fun newInstanceInMemory(context: Context, password: String? = null): AndroidSqliteDriver {
+        public fun newInstanceInMemory(
+            context: Context,
+            password: String? = null
+        ): AndroidSqliteDriver {
             val sqliteDb = AndroidOpenHelper(context, null, password).writableDatabase
             return AndroidSqliteDriver(sqliteDb)
         }

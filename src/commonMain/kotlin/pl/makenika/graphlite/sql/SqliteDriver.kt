@@ -16,13 +16,13 @@
 
 package pl.makenika.graphlite.sql
 
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import pl.makenika.graphlite.use
-import kotlin.coroutines.AbstractCoroutineContextElement
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.coroutineContext
+
+public expect class ThreadLocalState<T> constructor() {
+    public fun get(): T?
+    public fun remove()
+    public fun set(value: T)
+}
 
 public abstract class SqliteDriver {
     internal fun getDbVersion(): Long? {
@@ -63,50 +63,41 @@ public abstract class SqliteDriver {
     protected abstract fun endTransaction()
     protected abstract fun setTransactionSuccessful()
 
-    private val transactionMutex = Mutex(false)
+    private val transactionFlag = ThreadLocalState<Unit>()
 
-    private class TransactionContext : AbstractCoroutineContextElement(TransactionContext) {
-        companion object Key : CoroutineContext.Key<TransactionContext>
-    }
+    private fun isInTransaction() = transactionFlag.get() != null
 
-    internal suspend fun <T> transaction(fn: suspend () -> T): T {
-        val inTransaction = coroutineContext[TransactionContext] != null
-        return if (inTransaction) {
+    internal fun <T> transaction(fn: () -> T): T {
+        return if (isInTransaction()) {
             fn()
         } else {
-            withContext(TransactionContext()) {
-                transactionMutex.withLock {
-                    beginTransaction()
-                    try {
-                        val result = fn()
-                        setTransactionSuccessful()
-                        result
-                    } finally {
-                        endTransaction()
-                    }
-                }
+            transactionFlag.set(Unit)
+            beginTransaction()
+            try {
+                val result = fn()
+                setTransactionSuccessful()
+                result
+            } finally {
+                endTransaction()
+                transactionFlag.remove()
             }
         }
     }
 
-    internal suspend fun <T> transactionWithRollback(fn: () -> T): TransactionResult<T> {
-        val inTransaction = coroutineContext[TransactionContext] != null
-        return if (inTransaction) {
+    internal fun <T> transactionWithRollback(fn: () -> T): TransactionResult<T> {
+        return if (isInTransaction()) {
             TransactionResult.Ok(fn())
         } else {
-            withContext(TransactionContext()) {
-                transactionMutex.withLock {
-                    beginTransaction()
-                    try {
-                        val result = fn()
-                        setTransactionSuccessful()
-                        TransactionResult.Ok(result)
-                    } catch (e: RollbackException) {
-                        TransactionResult.Fail(e)
-                    } finally {
-                        endTransaction()
-                    }
-                }
+            beginTransaction()
+            try {
+                val result = fn()
+                setTransactionSuccessful()
+                TransactionResult.Ok(result)
+            } catch (e: RollbackException) {
+                TransactionResult.Fail(e)
+            } finally {
+                endTransaction()
+                transactionFlag.remove()
             }
         }
     }
