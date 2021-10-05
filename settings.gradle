@@ -1,1 +1,3 @@
 rootProject.name = "graphlite"
+include ':benchmark'
+include ':graphlite'

@@ -12,7 +12,7 @@ import org.junit.runner.RunWith
 import org.sqlite.database.sqlite.SQLiteDatabaseCorruptException
 
 @RunWith(AndroidJUnit4::class)
-class EncryptedDbTest {
+internal class EncryptedDbTest {
     companion object {
         private const val dbName = "test.sqlite3"
     }

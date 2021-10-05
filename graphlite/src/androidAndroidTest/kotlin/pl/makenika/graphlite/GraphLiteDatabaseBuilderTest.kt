@@ -8,7 +8,7 @@ import pl.makenika.graphlite.sql.SqliteDriver
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class GraphLiteDatabaseBuilderTest : BaseGraphLiteDatabaseBuilderTest() {
+internal class GraphLiteDatabaseBuilderTest : BaseGraphLiteDatabaseBuilderTest() {
     override fun makeDriver(): SqliteDriver {
         val context = ApplicationProvider.getApplicationContext<Application>()
         return AndroidSqliteDriver.newInstanceInMemory(context)

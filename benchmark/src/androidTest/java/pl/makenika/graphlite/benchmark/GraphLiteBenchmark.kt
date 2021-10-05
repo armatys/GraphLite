@@ -1,4 +1,4 @@
-package pl.makenika.graphlite
+package pl.makenika.graphlite.benchmark
 
 import android.app.Application
 import androidx.benchmark.junit4.BenchmarkRule
@@ -11,6 +11,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import pl.makenika.graphlite.*
 import kotlin.random.Random
 
 @RunWith(AndroidJUnit4::class)
@@ -63,4 +64,8 @@ class GraphLiteBenchmark {
             tested.deleteNode(NodeHandle("$i"))
         }
     }
+}
+
+private object PersonV1 : Schema("person", 1) {
+    val name = textField("n").onValidate { it.isNotBlank() }
 }
