@@ -25,7 +25,7 @@ android {
         }
     }
 
-    ndkVersion = "21.3.6528147"
+    ndkVersion = "23.0.7599858"
 
     packagingOptions {
         resources {
@@ -41,7 +41,6 @@ android {
         }
         getByName("main") {
             java.srcDir("src/androidMain/java")
-            java.srcDir("src/androidMain/kotlin")
             manifest.srcFile("src/androidMain/AndroidManifest.xml")
         }
     }
@@ -75,35 +74,45 @@ kotlin {
         }
     }
 
-    sourceSets["androidMain"].dependencies {
-    }
+    sourceSets {
+        val androidAndroidTestRelease by getting
+        val androidAndroidTest by getting {
+            dependsOn(androidAndroidTestRelease) // workaround for a warning
+            dependencies {
+                implementation("androidx.benchmark:benchmark-junit4:1.0.0")
+                implementation("androidx.test:core:1.4.0")
+                implementation("androidx.test:runner:1.4.0")
+                implementation("androidx.test:rules:1.4.0")
+                implementation("androidx.test.ext:junit:1.1.3")
+                implementation("org.jetbrains.kotlin:kotlin-test-junit")
+            }
+        }
+        val androidMain by getting
 
-    sourceSets["androidAndroidTest"].dependencies {
-        implementation("androidx.benchmark:benchmark-junit4:1.0.0")
-        implementation("androidx.test:core:1.4.0")
-        implementation("androidx.test:runner:1.4.0")
-        implementation("androidx.test:rules:1.4.0")
-        implementation("androidx.test.ext:junit:1.1.3")
-        implementation("org.jetbrains.kotlin:kotlin-test-junit")
-    }
+        val commonMain by getting {
+            dependencies {
+                implementation("com.benasher44:uuid:0.1.0")
+                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2-native-mt")
+            }
+        }
+        val commonTest by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-test-common")
+                implementation("org.jetbrains.kotlin:kotlin-test-annotations-common")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.2-native-mt")
+            }
+        }
 
-    sourceSets["commonMain"].dependencies {
-        implementation("com.benasher44:uuid:0.1.0")
-        api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2-native-mt")
-    }
-
-    sourceSets["commonTest"].dependencies {
-        implementation("org.jetbrains.kotlin:kotlin-test-common")
-        implementation("org.jetbrains.kotlin:kotlin-test-annotations-common")
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.2-native-mt")
-    }
-
-    sourceSets["jvmMain"].dependencies {
-        implementation("org.xerial:sqlite-jdbc:3.36.0")
-    }
-
-    sourceSets["jvmTest"].dependencies {
-        implementation("org.jetbrains.kotlin:kotlin-test-junit")
+        val jvmMain by getting {
+            dependencies {
+                implementation("org.xerial:sqlite-jdbc:3.36.0")
+            }
+        }
+        val jvmTest by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-test-junit")
+            }
+        }
     }
 }
 
