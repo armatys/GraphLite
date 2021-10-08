@@ -5,7 +5,7 @@ buildscript {
     }
     dependencies {
         classpath("com.android.tools.build:gradle:7.0.2")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.31")
-        classpath("androidx.benchmark:benchmark-gradle-plugin:1.0.0")
+        classpath(libs.kotlin.gradle)
+        classpath(libs.androidxBenchmark.gradle)
     }
 }
