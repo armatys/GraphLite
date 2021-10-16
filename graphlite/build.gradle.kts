@@ -74,6 +74,14 @@ kotlin {
         }
     }
 
+    targets.all {
+        compilations.all {
+            kotlinOptions {
+                allWarningsAsErrors = true
+            }
+        }
+    }
+
     sourceSets {
         val androidAndroidTestRelease by getting
         val androidAndroidTest by getting {
