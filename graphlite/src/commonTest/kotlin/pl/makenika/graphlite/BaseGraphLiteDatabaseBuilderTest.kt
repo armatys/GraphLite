@@ -3,6 +3,8 @@ package pl.makenika.graphlite
 import pl.makenika.graphlite.sql.SqliteDriver
 import kotlin.test.*
 
+private const val InitialDbVersion = 0L
+
 abstract class BaseGraphLiteDatabaseBuilderTest {
     private lateinit var driver: SqliteDriver
     private lateinit var tested: GraphLiteDatabaseBuilder
@@ -12,7 +14,7 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
     @BeforeTest
     fun setUp() {
         driver = makeDriver()
-        tested = GraphLiteDatabaseBuilder(driver)
+        tested = GraphLiteDatabaseBuilder(driver, InitialDbVersion)
     }
 
     @AfterTest
@@ -27,17 +29,19 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
 
     @Test
     fun registersSchema() {
-        tested.register(PersonV1).open()
+        tested.register(InitialDbVersion, PersonV1, Likes).open()
     }
 
     @Test
     fun performsEmptyMigration() {
-        tested.register(PersonV1).open()
+        tested.register(InitialDbVersion, PersonV1).open()
+
         var wasMigrationRun = false
-        tested = GraphLiteDatabaseBuilder(driver)
+        tested = GraphLiteDatabaseBuilder(driver, InitialDbVersion + 1)
         tested
-            .register(PersonV2)
-            .migration(PersonV1, PersonV2) {
+            .register(InitialDbVersion, PersonV1)
+            .register(InitialDbVersion + 1, PersonV2)
+            .migration(InitialDbVersion, InitialDbVersion + 1) {
                 wasMigrationRun = true
             }
             .open()
@@ -46,22 +50,21 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
 
     @Test
     fun performsMigration() {
-        val db1 = tested.register(Likes).register(PersonV1).open()
+        val db1 = tested.register(InitialDbVersion, Likes, PersonV1).open()
         val a1 = db1.createNode("alice", PersonV1 { it[name] = "Alice Kowalski" })!!
         val j1 = db1.createNode("john", PersonV1 { it[name] = "John Doe" })!!
         val likesEdge = db1.createEdge(Likes())
         db1.connect(likesEdge.handle, a1.handle, j1.handle, false)
 
-        tested = GraphLiteDatabaseBuilder(driver)
+        tested = GraphLiteDatabaseBuilder(driver, InitialDbVersion + 1)
         val db2 = tested
-            .register(LikesV2)
-            .register(PersonV2)
-            .migration(Likes, LikesV2) { db ->
+            .register(InitialDbVersion, Likes, PersonV1)
+            .register(InitialDbVersion + 1, LikesV2, PersonV2)
+            .migration(InitialDbVersion, InitialDbVersion + 1) { db ->
                 db.query(EdgeMatch(Likes)).forEach { edge ->
                     db.updateEdgeFields(edge, LikesV2 { it[level] = 100L })
                 }
-            }
-            .migration(PersonV1, PersonV2) { db ->
+
                 db.query(NodeMatch(PersonV1)).forEach { node ->
                     val (fName, lName) = node { name }.split(" ")
                     db.updateNodeFields(
@@ -93,4 +96,7 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
         assertEquals(j2.handle, johnConnections.first().nodeHandle)
         assertEquals(null, johnConnections.first().outgoing)
     }
+
+    // TODO downgrade migration
+    // TODO not all values migrated
 }

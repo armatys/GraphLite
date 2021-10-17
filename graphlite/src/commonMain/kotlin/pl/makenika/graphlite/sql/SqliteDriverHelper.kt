@@ -16,24 +16,35 @@
 
 package pl.makenika.graphlite.sql
 
-internal abstract class SqliteDriverHelper constructor(private val driver: SqliteDriver, private val version: Long) {
-    fun open(): SqliteDriver {
-        onConfigure(driver)
-        when (val currentDbVersion = driver.getDbVersion()) {
+internal object SqliteDriverHelper {
+    operator fun invoke(
+        driver: SqliteDriver,
+        version: Long,
+        onConfigure: ((SqliteDriver) -> Unit)? = null,
+        onCreate: ((SqliteDriver) -> Unit)? = null,
+        onOpen: ((SqliteDriver) -> Unit)? = null,
+        onUpgrade: ((SqliteDriver, Long, Long) -> Unit)? = null
+    ) {
+        onConfigure?.invoke(driver)
+        when (val currentDbVersion = driver.getSqlSchemaVersion()) {
             null -> {
                 driver.initialize(version)
-                onCreate(driver)
+                onCreate?.invoke(driver)
             }
             else -> {
-                migrateIfNeeded(driver, currentDbVersion, version)
-                driver.updateVersion(version)
+                migrateIfNeeded(driver, currentDbVersion, version, onUpgrade)
+                driver.updateSqlSchemaVersion(version)
             }
         }
-        onOpen(driver)
-        return driver
+        onOpen?.invoke(driver)
     }
 
-    private fun migrateIfNeeded(driver: SqliteDriver, currentDbVersion: Long, newVersion: Long) {
+    private fun migrateIfNeeded(
+        driver: SqliteDriver,
+        currentDbVersion: Long,
+        newVersion: Long,
+        onUpgrade: ((SqliteDriver, Long, Long) -> Unit)?
+    ) {
         if (currentDbVersion == newVersion) {
             return
         }
@@ -42,12 +53,7 @@ internal abstract class SqliteDriverHelper constructor(private val driver: Sqlit
         }
 
         for (v in (currentDbVersion + 1)..newVersion) {
-            onUpgrade(driver, v - 1, v)
+            onUpgrade?.invoke(driver, v - 1, v)
         }
     }
-
-    open fun onConfigure(driver: SqliteDriver) {}
-    abstract fun onCreate(driver: SqliteDriver)
-    abstract fun onUpgrade(driver: SqliteDriver, oldVersion: Long, newVersion: Long)
-    open fun onOpen(driver: SqliteDriver) {}
 }

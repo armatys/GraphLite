@@ -1,6 +1,6 @@
 package pl.makenika.graphlite
 
-internal object Animal : Schema("animal", 1) {
+public object Animal : Schema("animal", 1) {
     val name = textField("n")
 }
 

@@ -49,6 +49,6 @@ internal class EncryptedDbTest {
     private fun makeGraphDb(password: String): GraphLiteDatabase {
         val dbPath = context.getDatabasePath(dbName).path
         val driver = AndroidSqliteDriver.newInstance(context, dbPath, password)
-        return GraphLiteDatabaseBuilder(driver).register(Animal).open()
+        return GraphLiteDatabaseBuilder(driver, 1).register(1, Animal).open()
     }
 }

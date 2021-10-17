@@ -101,11 +101,16 @@ public class JvmSqliteDriver private constructor(private val connection: Connect
     override fun updateOrReplace(
         table: String,
         values: SqlContentValues,
-        whereClause: String,
-        whereArgs: Array<String>
+        whereClause: String?,
+        whereArgs: Array<String>?
     ) {
         val columnValues = values.keySet().joinToString(", ") { "$it = ?" }
-        val sql = "UPDATE OR REPLACE $table SET $columnValues WHERE $whereClause"
+        val sql = buildString {
+            append("UPDATE OR REPLACE $table SET $columnValues")
+            if (!whereClause.isNullOrBlank()) {
+                append(" WHERE $whereClause")
+            }
+        }
         val stmt = connection.prepareStatement(sql)
         values.keySet().forEachIndexed { i, key ->
             when (val value = values.get(key)) {
@@ -117,7 +122,7 @@ public class JvmSqliteDriver private constructor(private val connection: Connect
             }
         }
         val valueCount = values.keySet().size
-        whereArgs.forEachIndexed { i, arg ->
+        whereArgs?.forEachIndexed { i, arg ->
             stmt.setString(valueCount + i + 1, arg)
         }
         stmt.execute()

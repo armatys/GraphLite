@@ -57,8 +57,8 @@ public class AndroidSqliteDriver private constructor(private val db: SQLiteDatab
     override fun updateOrReplace(
         table: String,
         values: SqlContentValues,
-        whereClause: String,
-        whereArgs: Array<String>
+        whereClause: String?,
+        whereArgs: Array<String>?
     ) {
         db.updateWithOnConflict(
             table,

@@ -20,10 +20,23 @@ import com.benasher44.uuid.uuid4
 import pl.makenika.graphlite.impl.GraphLiteDatabaseImpl
 import pl.makenika.graphlite.impl.GraphSqlUtils.getSchemaFields
 import pl.makenika.graphlite.sql.*
+import kotlin.math.abs
 
-public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
-    private val migrations = LinkedHashMap<SchemaHandle, MutableMap<Long, Migration>>()
-    private val registeredSchemas = mutableMapOf<SchemaHandle, Schema>()
+private const val SQL_SCHEMA_VERSION = 1L
+private const val GRAPH_DB_META_TABLE_NAME = "_GraphDbMeta"
+private const val COL_GRAPH_DB_VERSION = "graph_db_vesion"
+
+public typealias DbVersion = Long
+
+public class GraphLiteDatabaseBuilder(
+    private val driver: SqliteDriver,
+    private val dbVersion: DbVersion
+) {
+    /** Map from target db version to a [Migration]. */
+    private val upgradeMigrations = mutableMapOf<DbVersion, Migration>()
+    private val downgradeMigrations = mutableMapOf<DbVersion, Migration>()
+
+    private val registeredSchemas = mutableMapOf<DbVersion, MutableMap<SchemaHandle, Schema>>()
     private var shouldDeleteOnSchemaConflict = false
 
     public fun deleteOnSchemaConflict(shouldDelete: Boolean): GraphLiteDatabaseBuilder {
@@ -31,75 +44,87 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         return this
     }
 
-    public fun register(schema: Schema): GraphLiteDatabaseBuilder {
-        schema.freeze()
-        check(registeredSchemas.put(schema.schemaHandle, schema) == null)
+    public fun register(dbVersion: DbVersion, vararg schemas: Schema): GraphLiteDatabaseBuilder {
+        val schemasForGivenDbVersion = registeredSchemas.getOrPut(dbVersion) { mutableMapOf() }
+        schemas.forEach { schema ->
+            schema.freeze()
+            require(schemasForGivenDbVersion.put(schema.schemaHandle, schema) == null) {
+                "Schema $schema was already registered (dbVersion=$dbVersion)."
+            }
+        }
         return this
     }
 
-    public fun <O : Schema, N : Schema> migration(
-        oldSchema: O,
-        newSchema: N,
-        fn: Migration
+    public fun migration(
+        oldDbVersion: DbVersion,
+        newDbVersion: DbVersion,
+        migration: Migration
     ): GraphLiteDatabaseBuilder {
-        oldSchema.freeze()
-        newSchema.freeze()
-
-        require(newSchema.schemaHandle == oldSchema.schemaHandle)
-        require(newSchema.schemaVersion == oldSchema.schemaVersion + 1)
-
-        val targetVersionMigrations =
-            migrations.getOrPut(newSchema.schemaHandle, { mutableMapOf() })
-        check(targetVersionMigrations.put(newSchema.schemaVersion, fn) == null)
+        require(abs(oldDbVersion - newDbVersion) == 1L) { "Only migrations between subsequent versions are supported." }
+        val migrations = if (newDbVersion > oldDbVersion) upgradeMigrations else downgradeMigrations
+        require(migrations.put(newDbVersion, migration) == null) {
+            "Migration from version $oldDbVersion to version $newDbVersion was already added."
+        }
         return this
     }
 
     public fun open(): GraphLiteDatabase {
-        val helper = GraphDriverHelper(driver, SQL_SCHEMA_VERSION)
-        val db = GraphLiteDatabaseImpl(helper.open())
+        SqliteDriverHelper(driver, SQL_SCHEMA_VERSION, onCreate = { sqliteDriver ->
+            schemaV1.forEach { sqliteDriver.execute(it) }
+            sqliteDriver.execute("CREATE TABLE IF NOT EXISTS $GRAPH_DB_META_TABLE_NAME ($COL_GRAPH_DB_VERSION INT)")
+            sqliteDriver.execute("INSERT INTO $GRAPH_DB_META_TABLE_NAME VALUES (NULL)")
+        })
+        val currentDbVersion: DbVersion = loadCurrentDbVersion() ?: dbVersion
+        val db = GraphLiteDatabaseImpl(driver)
 
         val schemasFromDb: Map<SchemaHandle, Schema> = loadSchemasFromDb()
-        val migrationsToRun = mutableListOf<MigrationRequest>()
-        val schemasToDelete = schemasFromDb.minus(registeredSchemas.keys).values.toMutableList()
-        val schemasToInsert = mutableListOf<Schema>()
+        val currentSchemas = registeredSchemas.getOrDefault(dbVersion, emptyMap()).values
+        val schemasToDelete = registeredSchemas.filter { it.key != dbVersion }.values
+            .flatMap { it.values }
+            .toSet()
+            .minus(currentSchemas)
+        val schemasToInsert = currentSchemas.minus(schemasFromDb.values)
 
-        for ((schemaHandleValue, registeredSchema) in registeredSchemas) {
-            val dbSchema = schemasFromDb[schemaHandleValue]
-            if (dbSchema == null) {
-                schemasToInsert.add(registeredSchema)
-            } else if (dbSchema.schemaVersion != registeredSchema.schemaVersion) {
-                check(registeredSchema.schemaVersion > dbSchema.schemaVersion)
-                schemasToInsert.add(registeredSchema)
-                schemasToDelete.add(dbSchema)
-                migrationsToRun.add(MigrationRequest(dbSchema, registeredSchema))
-            } else if (dbSchema.getFields<Schema>() != registeredSchema.getFields<Schema>()) {
-                if (shouldDeleteOnSchemaConflict) {
-                    schemasToInsert.add(registeredSchema)
-                    schemasToDelete.add(dbSchema)
-                } else {
-                    error("Schema for $schemaHandleValue with version ${registeredSchema.schemaVersion} has a conflict.")
+        val dbVersionDelta = dbVersion - currentDbVersion
+        val migrationsToRun: List<Migration> = when {
+            dbVersionDelta == 0L -> emptyList()
+            dbVersionDelta > 0 -> {
+                ((currentDbVersion + 1)..dbVersion).map {
+                    upgradeMigrations[it] ?: error("Missing upgrade migration to version $it")
                 }
             }
-        }
-
-        // check we have all necessary migrations
-        for (migrationRequest in migrationsToRun) {
-            val targetVersionMigrations =
-                migrations[migrationRequest.newSchema.schemaHandle] ?: mutableMapOf()
-            for (i in (migrationRequest.oldSchema.schemaVersion + 1)..migrationRequest.newSchema.schemaVersion) {
-                if (targetVersionMigrations[i] == null) {
-                    error("Missing migration for ${migrationRequest.newSchema.schemaHandle} from version ${migrationRequest.oldSchema.schemaVersion} to version ${migrationRequest.newSchema.schemaVersion}")
+            else -> {
+                ((currentDbVersion - 1)..dbVersion).map {
+                    downgradeMigrations[it] ?: error("Missing downgrade migration to version $it")
                 }
             }
         }
 
         driver.transaction {
+            updateCurrentDbVersion()
             schemasToInsert.forEach { insertSchema(it) }
-            migrationsToRun.forEach { performMigration(db, it) }
+            migrationsToRun.forEach { it(db) }
             schemasToDelete.forEach { deleteSchema(it) }
         }
 
+        // TODO after migrations, check if all the values are associated with the newest schemas
+
         return db
+    }
+
+    private fun loadCurrentDbVersion(): DbVersion? {
+        val v = driver.query("SELECT $COL_GRAPH_DB_VERSION FROM $GRAPH_DB_META_TABLE_NAME").use {
+            if (it.moveToNext()) {
+                it.findLong(COL_GRAPH_DB_VERSION)
+            } else {
+                null
+            }
+        }
+        return v
+    }
+
+    private fun updateCurrentDbVersion() {
+        driver.execute("update $GRAPH_DB_META_TABLE_NAME set $COL_GRAPH_DB_VERSION = $dbVersion")
     }
 
     private fun loadSchemasFromDb(): Map<SchemaHandle, Schema> {
@@ -165,19 +190,6 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
         }
     }
 
-    private fun performMigration(
-        db: GraphLiteDatabase,
-        migrationRequest: MigrationRequest
-    ) {
-        val targetVersionMigrations =
-            migrations[migrationRequest.newSchema.schemaHandle] ?: emptyMap<Int, Migration>()
-        for (v in (migrationRequest.oldSchema.schemaVersion + 1)..migrationRequest.newSchema.schemaVersion) {
-            val migration = targetVersionMigrations[v]
-                ?: error("Missing migration for ${migrationRequest.newSchema.schemaHandle} from version ${migrationRequest.oldSchema.schemaVersion} to version ${migrationRequest.newSchema.schemaVersion}.")
-            migration(db)
-        }
-    }
-
     private fun deleteSchema(schema: Schema) {
         driver.delete(
             "Schema",
@@ -185,22 +197,6 @@ public class GraphLiteDatabaseBuilder(private val driver: SqliteDriver) {
             arrayOf(schema.schemaHandle.value, schema.schemaVersion.toString())
         )
     }
-
-    internal companion object {
-        private const val SQL_SCHEMA_VERSION = 1L
-    }
 }
 
-private typealias Migration = (GraphLiteDatabase) -> Unit
-
-private class MigrationRequest(val oldSchema: Schema, val newSchema: Schema)
-
-private class GraphDriverHelper(driver: SqliteDriver, version: Long) :
-    SqliteDriverHelper(driver, version) {
-    override fun onCreate(driver: SqliteDriver) {
-        schemaV1.forEach { driver.execute(it) }
-    }
-
-    override fun onUpgrade(driver: SqliteDriver, oldVersion: Long, newVersion: Long) {
-    }
-}
+public typealias Migration = (GraphLiteDatabase) -> Unit

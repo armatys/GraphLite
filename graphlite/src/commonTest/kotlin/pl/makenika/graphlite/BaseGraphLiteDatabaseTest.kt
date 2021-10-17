@@ -13,12 +13,8 @@ abstract class BaseGraphLiteDatabaseTest {
     @BeforeTest
     fun setUp() {
         val driver = makeDriver()
-        tested = GraphLiteDatabaseBuilder(driver)
-            .register(Animal)
-            .register(Likes)
-            .register(Loves)
-            .register(PersonV1)
-            .register(Tree)
+        tested = GraphLiteDatabaseBuilder(driver, 1)
+            .register(1, Animal, Likes, Loves, PersonV1, Tree)
             .open()
     }
 

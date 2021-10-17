@@ -25,8 +25,8 @@ class GraphLiteBenchmark {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val driver = AndroidSqliteDriver.newInstanceInMemory(context)
-        tested = GraphLiteDatabaseBuilder(driver)
-            .register(PersonV1)
+        tested = GraphLiteDatabaseBuilder(driver, 1)
+            .register(1, PersonV1)
             .open()
     }
 

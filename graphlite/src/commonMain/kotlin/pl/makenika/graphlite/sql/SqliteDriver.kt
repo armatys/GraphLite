@@ -25,14 +25,14 @@ public expect class ThreadLocalState<T> constructor() {
 }
 
 public abstract class SqliteDriver {
-    internal fun getDbVersion(): Long? {
+    internal fun getSqlSchemaVersion(): Long? {
         if (!isInitialized()) {
             return null
         }
 
-        return query("SELECT $VERSION_COL from $VERSION_TABLE").use { cursor ->
+        return query("SELECT $COL_SQL_SCHEMA_VERSION from $SQL_DRIVER_META_TABLE_NAME").use { cursor ->
             if (cursor.moveToNext()) {
-                cursor.getLong(VERSION_COL)
+                cursor.getLong(COL_SQL_SCHEMA_VERSION)
             } else {
                 null
             }
@@ -41,20 +41,20 @@ public abstract class SqliteDriver {
 
     internal fun initialize(version: Long) {
         //language=SQLITE-SQL
-        execute("create table $VERSION_TABLE (version integer)")
+        execute("create table $SQL_DRIVER_META_TABLE_NAME ($COL_SQL_SCHEMA_VERSION integer)")
         //language=SQLITE-SQL
-        execute("insert into $VERSION_TABLE values ($version)")
+        execute("insert into $SQL_DRIVER_META_TABLE_NAME values ($version)")
     }
 
     private fun isInitialized(): Boolean {
-        return query("SELECT name FROM sqlite_master WHERE type='table' AND name='$VERSION_TABLE'").use {
+        return query("SELECT name FROM sqlite_master WHERE type='table' AND name='$SQL_DRIVER_META_TABLE_NAME'").use {
             it.moveToNext()
         }
     }
 
-    internal fun updateVersion(version: Long) {
+    internal fun updateSqlSchemaVersion(version: Long) {
         //language=SQLITE-SQL
-        execute("update $VERSION_TABLE set $VERSION_COL = $version")
+        execute("update $SQL_DRIVER_META_TABLE_NAME set $COL_SQL_SCHEMA_VERSION = $version")
     }
 
     internal abstract fun close()
@@ -118,12 +118,12 @@ public abstract class SqliteDriver {
     internal abstract fun updateOrReplace(
         table: String,
         values: SqlContentValues,
-        whereClause: String,
-        whereArgs: Array<String>
+        whereClause: String?,
+        whereArgs: Array<String>?
     )
 
     internal companion object {
-        private const val VERSION_TABLE = "_SqlDriverSchemaVersion"
-        private const val VERSION_COL = "version"
+        private const val SQL_DRIVER_META_TABLE_NAME = "_SqlDriverMeta"
+        private const val COL_SQL_SCHEMA_VERSION = "sql_schema_version"
     }
 }
