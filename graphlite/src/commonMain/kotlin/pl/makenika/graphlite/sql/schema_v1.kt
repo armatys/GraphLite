@@ -62,12 +62,6 @@ internal val schemaV1 = arrayOf(
     "create index if not exists nodeOutgoingIndex on Connection (nodeHandle, outgoing);"
 )
 
-// TODO log table, or use Session extension https://www.sqlite.org/sessionintro.html
-// operation (create, update, delete)
-// table name
-// id
-// timestamp
-
 internal fun getFieldValueTableName(fieldId: String): String = "Field_${safeTableName(fieldId)}"
 internal fun getFtsTableName(fieldId: String): String = "FieldFtsText_${safeTableName(fieldId)}"
 internal fun getRTreeTableName(fieldId: String): String = "FieldGeo_${safeTableName(fieldId)}_rtree"
