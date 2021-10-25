@@ -123,3 +123,9 @@ public fun <S : Schema> S.fieldMap(builderFn: (S.(FieldMapBuilder<S>) -> Unit)? 
 
 public operator fun <S : Schema> S.invoke(builderFn: (S.(FieldMapBuilder<S>) -> Unit)? = null): FieldMap<S> =
     fieldMap(builderFn)
+
+internal class SchemaWithId(
+    val schemaId: String,
+    schemaHandle: SchemaHandle,
+    schemaVersion: Long
+) : Schema(schemaHandle, schemaVersion)

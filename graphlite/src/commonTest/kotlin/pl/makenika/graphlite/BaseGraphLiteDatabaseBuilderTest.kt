@@ -49,6 +49,26 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
     }
 
     @Test
+    fun performsEmptyDowngradeMigration() {
+        tested = GraphLiteDatabaseBuilder(driver, InitialDbVersion + 1)
+        tested
+            .register(InitialDbVersion, PersonV1)
+            .register(InitialDbVersion + 1, PersonV2)
+            .open()
+
+        var wasMigrationRun = false
+        tested = GraphLiteDatabaseBuilder(driver, InitialDbVersion)
+        tested
+            .register(InitialDbVersion, PersonV1)
+            .register(InitialDbVersion + 1, PersonV2)
+            .migration(InitialDbVersion + 1, InitialDbVersion) {
+                wasMigrationRun = true
+            }
+            .open()
+        assertTrue(wasMigrationRun)
+    }
+
+    @Test
     fun performsMigration() {
         val db1 = tested.register(InitialDbVersion, Likes, PersonV1).open()
         val a1 = db1.createNode("alice", PersonV1 { it[name] = "Alice Kowalski" })!!
@@ -61,6 +81,7 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
             .register(InitialDbVersion, Likes, PersonV1)
             .register(InitialDbVersion + 1, LikesV2, PersonV2)
             .migration(InitialDbVersion, InitialDbVersion + 1) { db ->
+                println("Migrating from $InitialDbVersion to ${InitialDbVersion + 1}")
                 db.query(EdgeMatch(Likes)).forEach { edge ->
                     db.updateEdgeFields(edge, LikesV2 { it[level] = 100L })
                 }
@@ -70,6 +91,13 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
                     db.updateNodeFields(
                         node,
                         PersonV2 { it[firstName] = fName; it[lastName] = lName })
+                }
+                println("Migrated")
+                db.query(NodeMatch(PersonV1)).forEach { node ->
+                    println("PersonV1 node: $node")
+                }
+                db.query(NodeMatch(PersonV2)).forEach { node ->
+                    println("PersonV2 node: $node")
                 }
             }
             .open()
@@ -97,6 +125,18 @@ abstract class BaseGraphLiteDatabaseBuilderTest {
         assertEquals(null, johnConnections.first().outgoing)
     }
 
-    // TODO downgrade migration
-    // TODO not all values migrated
+    @Test(expected = IllegalStateException::class)
+    fun valuesNotMigrated() {
+        val db1 = tested.register(InitialDbVersion, PersonV1).open()
+        db1.createNode("alice", PersonV1 { it[name] = "Alice Kowalski" })
+
+        tested = GraphLiteDatabaseBuilder(driver, InitialDbVersion + 1)
+        tested
+            .register(InitialDbVersion, PersonV1)
+            .register(InitialDbVersion + 1, PersonV2)
+            .migration(InitialDbVersion, InitialDbVersion + 1) {
+                // no-op
+            }
+            .open()
+    }
 }

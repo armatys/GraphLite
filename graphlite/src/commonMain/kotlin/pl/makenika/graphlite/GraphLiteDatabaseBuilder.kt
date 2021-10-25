@@ -77,7 +77,8 @@ public class GraphLiteDatabaseBuilder(
         val currentDbVersion: DbVersion = loadCurrentDbVersion() ?: dbVersion
         val db = GraphLiteDatabaseImpl(driver)
 
-        val schemasFromDb: Map<SchemaHandle, Schema> = loadSchemasFromDb()
+        val schemasFromDb: Map<SchemaHandle, SchemaWithId> = loadSchemasFromDb()
+
         val currentSchemas = registeredSchemas.getOrDefault(dbVersion, emptyMap()).values
         val schemasToDelete = registeredSchemas.filter { it.key != dbVersion }.values
             .flatMap { it.values }
@@ -100,16 +101,42 @@ public class GraphLiteDatabaseBuilder(
             }
         }
 
+        val schemaHandleToId = mutableMapOf<SchemaHandle, String>()
+        schemasFromDb.values.forEach {
+            schemaHandleToId[it.schemaHandle] = it.schemaId
+        }
+
         driver.transaction {
             updateCurrentDbVersion()
-            schemasToInsert.forEach { insertSchema(it) }
+            schemasToInsert.forEach {
+                val schemaId = insertSchema(it)
+                schemaHandleToId[it.schemaHandle] = schemaId
+            }
             migrationsToRun.forEach { it(db) }
+            val currentSchemaIds =
+                currentSchemas.map { schemaHandleToId[it.schemaHandle]!! }.toTypedArray()
+            checkAllElementsMigrated(currentSchemaIds)
             schemasToDelete.forEach { deleteSchema(it) }
         }
 
-        // TODO after migrations, check if all the values are associated with the newest schemas
-
         return db
+    }
+
+    private fun checkAllElementsMigrated(currentSchemaIds: Array<String>) {
+        val schemaPlaceholders = List(currentSchemaIds.size) { "?" }.joinToString(",")
+        val unmigratedElementHandles = driver.query(
+            "SELECT handle FROM Element WHERE schemaId NOT IN ($schemaPlaceholders) LIMIT 100",
+            currentSchemaIds
+        ).use {
+            val handles = mutableListOf<String>()
+            while (it.moveToNext()) {
+                handles.add(it.getString("handle"))
+            }
+            handles
+        }
+        check(unmigratedElementHandles.isEmpty()) {
+            "The following Elements were not migrated to the newest Schema: $unmigratedElementHandles"
+        }
     }
 
     private fun loadCurrentDbVersion(): DbVersion? {
@@ -127,15 +154,15 @@ public class GraphLiteDatabaseBuilder(
         driver.execute("update $GRAPH_DB_META_TABLE_NAME set $COL_GRAPH_DB_VERSION = $dbVersion")
     }
 
-    private fun loadSchemasFromDb(): Map<SchemaHandle, Schema> {
-        val schemas = mutableMapOf<SchemaHandle, Schema>()
+    private fun loadSchemasFromDb(): Map<SchemaHandle, SchemaWithId> {
+        val schemas = mutableMapOf<SchemaHandle, SchemaWithId>()
         driver.query("SELECT * FROM Schema").use { schemaCursor ->
             while (schemaCursor.moveToNext()) {
                 val schemaId = schemaCursor.getString("id")
                 val handleValue = schemaCursor.getString("handle")
                 val version = schemaCursor.getLong("version")
                 val schemaHandle = SchemaHandle(handleValue)
-                val schema = object : Schema(schemaHandle, version) {}
+                val schema = SchemaWithId(schemaId, schemaHandle, version)
 
                 getSchemaFields(driver, schemaId).forEach {
                     schema.addField(it)
@@ -148,7 +175,8 @@ public class GraphLiteDatabaseBuilder(
         return schemas
     }
 
-    private fun insertSchema(schema: Schema) {
+    /** Inserts a [schema] and returns its ID. */
+    private fun insertSchema(schema: Schema): String {
         val schemaId = uuid4().toString()
         val schemaValues = SqlContentValues().apply {
             put("id", schemaId)
@@ -188,6 +216,7 @@ public class GraphLiteDatabaseBuilder(
                 driver.execute(it)
             }
         }
+        return schemaId
     }
 
     private fun deleteSchema(schema: Schema) {
