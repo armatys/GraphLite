@@ -79,7 +79,7 @@ public class GraphLiteDatabaseBuilder(
 
         val schemasFromDb: Map<SchemaHandle, SchemaWithId> = loadSchemasFromDb()
 
-        val currentSchemas = registeredSchemas.getOrDefault(dbVersion, emptyMap()).values
+        val currentSchemas = registeredSchemas.getOrElse(dbVersion, { emptyMap() }).values
         val schemasToDelete = registeredSchemas.filter { it.key != dbVersion }.values
             .flatMap { it.values }
             .toSet()
