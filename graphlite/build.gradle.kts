@@ -52,7 +52,7 @@ repositories {
 }
 
 group = "pl.makenika.graphlite"
-version = "0.0.12"
+version = "0.1.0"
 
 kotlin {
     explicitApi()
