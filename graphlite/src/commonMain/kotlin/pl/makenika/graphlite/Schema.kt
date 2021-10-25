@@ -31,6 +31,9 @@ public abstract class Schema(
     private val fieldValidators = mutableMapOf<FieldHandle, FieldValidator<*, *>>()
     private var isFrozen = false
 
+    protected val <S : Schema> S.optional: OptionalFieldBuilder<S>
+        get() = OptionalFieldBuilder(this)
+
     internal fun <F : Field<S, *>, S : Schema> addField(field: F): F {
         if (isFrozen) error("Schema is already frozen.")
         check(fields.put(field.handle, field) == null) {
@@ -50,10 +53,6 @@ public abstract class Schema(
     @Suppress("UNCHECKED_CAST")
     internal fun <S : Schema, T> getValidator(field: Field<S, T>): FieldValidator<S, T>? {
         return fieldValidators[field.handle] as FieldValidator<S, T>?
-    }
-
-    protected fun <S : Schema> S.optional(): OptionalFieldBuilder<S> {
-        return OptionalFieldBuilder(this)
     }
 
     protected fun <S : Schema> S.blobField(name: String): Field<S, ByteArray> {
